@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Masterlist Compare — SNJ SYNC</title>
+<script>document.documentElement.setAttribute('data-theme', localStorage.getItem('ctf-theme') || 'dark');</script>
+<style>@view-transition{navigation:auto}
+@media (prefers-reduced-motion:no-preference){
+::view-transition-old(root){animation:none;opacity:1}
+::view-transition-new(root){animation:snjIn 170ms ease both}
+}
+@keyframes snjIn{from{opacity:0}}</style>
+<style>
+:root{--bg:#09090b;--card:#18181b;--border:#27272a;--text:#fafafa;--text2:#a1a1aa;--accent:#f97316;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--radius:14px}
+
+html[data-theme="light"]{--bg:#fafafa;--card:#fff;--border:#e4e4e7;--text:#18181b;--text2:#71717a;--accent:#ea580c}
+
+*{box-sizing:border-box;margin:0}
+
+body{font-family:Inter,'Segoe UI',system-ui,-apple-system,sans-serif;font-size:14px;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;padding-bottom:80px}
+
+body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.72))}
+html[data-theme="light"] body::before{background:linear-gradient(180deg,rgba(255,252,240,.60),rgba(255,252,240,.82))}
+body::after{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;background:url('/bg-dashboard.jpeg') center/cover no-repeat}
+
+
+.topbar{position:sticky;top:clamp(8px,1.2vw,14px);z-index:40;
+  margin:clamp(8px,1.2vw,14px) clamp(14px,1.1vw,20px) 0;
+  display:flex;align-items:center;border-radius:14px;
+  background:color-mix(in srgb, var(--bg) 94%, transparent);
+  border:1px solid var(--border);box-shadow:0 8px 28px rgba(0,0,0,.38)}
+
+.topbar .inner{width:100%;display:flex;align-items:center;padding:10px 16px}
+
+.brand{display:flex;align-items:center;gap:10px}
+
+.logo{width:36px;height:36px;border-radius:10px;background:var(--accent);display:grid;place-items:center;font-weight:800;color:#fff;font-size:12px;flex-shrink:0}
+
+.brand-text h1{font-size:15px;font-weight:700;letter-spacing:-.3px}
+
+.brand-text .sub{color:var(--text2);font-size:11.5px;margin-top:1px}
+
+main{width:100%;margin:0 auto;padding:16px 20px}
+
+.sec{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+
+.sec-head{font-weight:700;font-size:13px;margin-bottom:10px;color:var(--text)}
+
+.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:20px;text-align:center;cursor:pointer;transition:background-color .15s,color .15s,border-color .15s;color:var(--text2);font-size:12.5px}
+
+.upload-zone:hover{border-color:var(--accent);background:color-mix(in srgb, var(--accent) 5%, transparent)}
+
+.upload-zone.dragover{border-color:var(--accent);background:color-mix(in srgb, var(--accent) 8%, transparent);color:var(--accent)}
+
+.upload-zone .fname{color:var(--accent);font-weight:600;margin-top:4px}
+
+.hint{font-size:11px;color:var(--text2);margin-top:6px}
+
+button.ghost{background:transparent;color:var(--accent);border:1px solid color-mix(in srgb, var(--accent) 40%, transparent);padding:7px 14px;border-radius:10px;font-weight:600;font-size:11.5px;cursor:pointer;transition:background .15s}
+
+button.ghost:hover{background:color-mix(in srgb, var(--accent) 10%, transparent)}
+
+button.ghost:disabled{opacity:.4;cursor:default;pointer-events:none}
+
+button.primary{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:9px 18px;font-weight:600;font-size:12px;cursor:pointer;transition:opacity .15s}
+
+button.primary:hover{opacity:.9}
+
+button.primary:disabled{opacity:.5;cursor:wait}
+
+button.danger{background:transparent;color:var(--red);border:1px solid color-mix(in srgb, var(--red) 40%, transparent);padding:7px 14px;border-radius:10px;font-weight:600;font-size:11.5px;cursor:pointer;transition:background .15s}
+
+button.danger:hover{background:color-mix(in srgb, var(--red) 10%, transparent)}
+
+#status{margin-top:8px;font-size:12px;color:var(--text2);min-height:18px}
+
+#status.ok{color:var(--green)}#status.error{color:var(--red)}
+
+.prog{margin-top:10px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+
+.prog-bar{background:var(--border);border-radius:6px;height:6px;overflow:hidden;margin-top:6px}
+
+.prog-fill{height:100%;width:0%;background:var(--accent);border-radius:6px;transition:width .2s}
+
+.prog-fill.ok{background:var(--green)}
+
+.prog-msg{font-size:11px;color:var(--text2);margin-top:4px}
+
+.ml-list{margin-top:10px}
+
+.ml-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;font-size:12px;transition:background .1s;content-visibility:auto;contain-intrinsic-size:auto 37px}
+
+.ml-item:hover{background:color-mix(in srgb, var(--text) 3%, transparent)}
+
+.ml-item .ml-name{flex:1;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.ml-item .ml-sheet{color:var(--text2);font-size:11px}
+
+.ml-item .ml-date{color:var(--text2);font-size:10.5px}
+
+.badge{font-size:9.5px;padding:2px 8px;border-radius:6px;font-weight:600;white-space:nowrap}
+
+.badge.approved{color:var(--green);border:1px solid var(--green);background:color-mix(in srgb, var(--green) 10%, transparent)}
+
+.badge.pending{color:var(--yellow);border:1px solid var(--yellow);background:color-mix(in srgb, var(--yellow) 10%, transparent)}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+
+.chip{padding:5px 12px;border-radius:999px;font-size:11.5px;font-weight:600;background:var(--card);border:1px solid var(--border);cursor:pointer;transition:background-color .15s,color .15s,border-color .15s}
+
+.chip.active{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb, var(--accent) 10%, transparent)}
+
+.chip.new{color:var(--red);border-color:var(--red);background:color-mix(in srgb, var(--red) 10%, transparent)}
+
+.chip.existing{color:var(--green);border-color:var(--green);background:color-mix(in srgb, var(--green) 10%, transparent)}
+
+#tbl{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}
+
+#tbl th{position:sticky;top:0;background:var(--card);color:var(--text2);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);z-index:10;font-weight:600}
+
+#tbl td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+
+#tbl tr:hover{background:color-mix(in srgb, var(--text) 3%, transparent)}
+
+.tbl-new{width:100%;border-collapse:collapse;margin-top:0;font-size:12px}
+
+.tbl-new th{position:sticky;top:0;background:var(--card);color:var(--text2);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);z-index:10;font-weight:600}
+
+.tbl-new td{padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+
+.tbl-new tr:hover{background:color-mix(in srgb, var(--text) 3%, transparent)}
+
+.tbl-new input[type=text]{width:100%;min-width:110px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:4px 6px;font-size:11px}
+
+.tbl-new input[type=text]:focus{outline:none;border-color:var(--accent)}
+
+.search-wrap{display:flex;align-items:center;gap:8px;margin:12px 0 4px}
+
+.search-wrap input{flex:1;max-width:520px;padding:9px 14px;font-size:12.5px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);outline:none;transition:border-color .15s}
+
+.search-wrap input:focus{border-color:var(--accent)}
+
+.search-wrap input::placeholder{color:var(--text2)}
+
+.search-count{font-size:11px;color:var(--text2);white-space:nowrap}
+
+.tbl-new input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+
+.flag{font-weight:700;padding:3px 10px;border-radius:999px;font-size:10px;white-space:nowrap;display:inline-block}
+
+.flag.new{color:var(--red);border:1px solid var(--red);background:color-mix(in srgb, var(--red) 10%, transparent)}
+
+.flag.existing{color:var(--green);border:1px solid var(--green);background:color-mix(in srgb, var(--green) 10%, transparent)}
+
+.flag.review{color:var(--yellow);border:1px solid var(--yellow);background:color-mix(in srgb, var(--yellow) 10%, transparent)}
+
+.note-cell{min-width:260px;max-width:380px;font-size:11px;color:var(--text2);line-height:1.6;white-space:normal;word-break:break-word;overflow-wrap:anywhere}
+
+.confirm-btn{background:transparent;color:var(--green);border:1px solid color-mix(in srgb, var(--green) 40%, transparent);padding:3px 10px;border-radius:999px;font-weight:700;font-size:10px;cursor:pointer;margin-left:6px;white-space:nowrap}
+
+.gcount{display:inline-block;background:color-mix(in srgb, var(--accent) 18%, transparent);color:var(--accent);border-radius:999px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:6px;vertical-align:middle}
+
+.confirm-btn:hover{background:color-mix(in srgb, var(--green) 15%, transparent)}
+
+#toast{position:fixed;left:50%;bottom:100px;z-index:80;transform:translateX(-50%) translateY(16px);background:var(--card);border:1px solid var(--border);color:var(--text);padding:10px 18px;border-radius:10px;font-weight:600;font-size:12.5px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none}
+
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+#toast.ok{border-color:var(--green);color:var(--green)}
+
+#toast.fail{border-color:var(--red);color:var(--red)}
+
+.bottom-nav{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:100;display:flex;align-items:center;gap:2px;padding:6px 8px;border-radius:999px;border:1px solid var(--border);background:color-mix(in srgb, var(--bg) 94%, transparent);box-shadow:0 4px 24px rgba(0,0,0,.3)}
+
+html[data-theme="light"] .bottom-nav{box-shadow:0 4px 24px rgba(0,0,0,.08)}
+
+.nav-item{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;color:var(--text2);text-decoration:none;transition:color .15s,background-color .15s;background:none;border:none;cursor:pointer}
+
+.nav-item:hover{color:var(--text)}
+
+.nav-item.active{background:color-mix(in srgb, var(--accent) 15%, transparent);color:var(--accent)}
+
+.nav-item svg{width:18px;height:18px}
+
+.settings-dd{display:none;position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);min-width:220px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.5);z-index:110;overflow:hidden;padding:6px}
+
+.settings-dd.show{display:block;animation:ddIn .15s ease}
+
+@keyframes ddIn{from{opacity:0;transform:translateX(-50%) translateY(6px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+.settings-dd button{display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;border:none;background:none;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;text-align:left;border-radius:10px;transition:background-color .12s,color .12s}
+
+.settings-dd button:hover{background:color-mix(in srgb, var(--accent) 10%, transparent);color:var(--text)}
+
+.settings-dd button svg{width:16px;height:16px;opacity:.6;flex-shrink:0}
+
+.settings-dd button:hover svg{opacity:1}
+
+.settings-dd .sep{height:1px;background:var(--border);margin:4px 8px}
+
+@media(max-width:640px){
+  .topbar .inner{padding:8px 12px}.brand-text h1{font-size:13.5px}.brand-text .sub{display:none}
+
+  main{padding:12px 14px}.sec{padding:12px;border-radius:12px}
+
+  .ml-item{flex-wrap:wrap}
+
+  .bottom-nav{bottom:10px;gap:0;padding:4px 6px}
+
+  .nav-item{width:36px;height:36px}.nav-item svg{width:16px;height:16px}
+
+}
+
+</style>
+</head>
+<body>
+<header class="topbar"><div class="inner"><div class="brand">
+  <div class="logo">SNJ</div>
+  <div class="brand-text"><h1>Masterlist Compare</h1><p class="sub">Upload PL &rarr; Upload Masterlist &rarr; Approve &rarr; Compare &rarr; Export.</p></div>
+</div></div></header>
+<main>
+  
+  <div class="sec">
+    <div class="sec-head">1. Upload Packing List</div>
+    <div class="upload-zone" id="plDropZone">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+      <div>Klik atau seret file Excel ke sini (bisa lebih dari 1)</div>
+      <div class="fname" id="plFileName"></div>
+      <input type="file" id="plFileInput" accept=".xlsx,.xls,.csv" style="display:none" multiple>
+    </div>
+    <div id="plProg" style="display:none" class="prog">
+      <div style="font-size:12px;font-weight:600">Upload: <span id="plPct">0%</span></div>
+      <div class="prog-bar"><div class="prog-fill" id="plBar"></div></div>
+      <div class="prog-msg" id="plMsg">Menyiapkan...</div>
+    </div>
+    <div id="plInfo" class="hint" style="display:none"></div>
+    <div class="ml-list" id="plList"></div>
+  </div>
+
+  
+  <div class="sec">
+    <div class="sec-head">2. Upload Masterlist <span style="font-weight:400;color:var(--text2);font-size:11px">(referensi matching — backup master data)</span></div>
+    <div class="upload-zone" id="mlDropZone">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <div>Upload Excel Masterlist</div>
+      <div class="fname" id="mlFileName"></div>
+      <input type="file" id="mlFileInput" accept=".xlsx,.xls,.csv" style="display:none">
+    </div>
+    <div id="mlProg" style="display:none" class="prog">
+      <div style="font-size:12px;font-weight:600">Upload: <span id="mlPct">0%</span></div>
+      <div class="prog-bar"><div class="prog-fill" id="mlBar"></div></div>
+      <div class="prog-msg" id="mlMsg">Menyiapkan...</div>
+    </div>
+    <div class="ml-list" id="mlList"></div>
+  </div>
+
+  
+  <div class="sec">
+    <div class="sec-head">3. Compare</div>
+    <div class="chips" id="filterChips" style="display:none">
+      <span class="chip active" data-filter="all">Semua</span>
+      <span class="chip existing" data-filter="existing">EXISTING</span>
+      <span class="chip" data-filter="review" style="color:var(--yellow);border-color:var(--yellow)">REVIEW</span>
+      <span class="chip new" data-filter="new">NEW ITEM</span>
+    </div>
+    <div id="status"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0">
+      <button class="primary" id="btnCompare" disabled>Compare</button>
+      <button class="ghost" id="btnExport" disabled>Export</button>
+      <button class="primary" id="btnApproveResult" disabled style="background:var(--green);border-color:var(--green)">Approve &amp; Simpan</button>
+    </div>
+    <div id="approveStatus" class="hint" style="display:none;margin-top:8px"></div>
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="Cari: nama item, brand, no container, kode, importir, master desc, catatan...">
+      <span class="search-count" id="searchCount"></span>
+    </div>
+    <div style="overflow:auto;max-height:70vh;margin-top:10px">
+      <table id="tbl" style="display:none">
+        <thead><tr><th>No</th><th>Import Item Code</th><th>Brand</th><th>Nama Item Import</th><th>ETA</th><th>IMPORTIR</th><th>FLAG</th><th>Master Item Code</th><th>Master Item Desc</th><th>Catatan</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div id="tblLoadMore" style="display:none;text-align:center;padding:12px 0">
+        <button class="ghost" id="btnTableMore">Muat lebih banyak</button>
+      </div>
+    </div>
+  </div>
+
+  
+  <div class="sec" id="reviewSec" style="display:none">
+    <div class="sec-head">3.5 Review &amp; Validasi NEW ITEM <span style="font-weight:400;color:var(--text2);font-size:11px">(isi kode/deskripsi standar agar bisa jadi Master Data)</span></div>
+    <div id="reviewHint" class="hint" style="margin-bottom:8px">Item di bawah belum ada di Masterlist. Lengkapi <b>Item Code</b> &amp; <b>Item Description</b> yang standar, lalu simpan. Setelah seluruh hasil di-check &amp; di-export, klik <b>Approve &amp; Simpan</b> untuk mengunci sebagai referensi Master Data final.</div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <button class="ghost" id="btnSelectAllNew" style="font-size:11px">Pilih Semua</button>
+      <button class="ghost" id="btnUnselectAllNew" style="font-size:11px">Batal Pilih</button>
+      <span id="reviewCount" class="hint" style="margin-left:auto"></span>
+    </div>
+    <div style="overflow:auto;max-height:45vh;border:1px solid var(--border);border-radius:10px">
+      <table id="tblNew" class="tbl-new">
+        <thead><tr><th style="width:34px"></th><th>Brand</th><th>Nama Item Import</th><th>ETA</th><th>Master Item Code</th><th>Master Item Desc</th></tr></thead>
+        <tbody id="tbodyNew"></tbody>
+      </table>
+      <div id="newLoadMore" style="display:none;text-align:center;padding:10px 0">
+        <button class="ghost" id="btnNewMore" style="font-size:11px">Muat lebih banyak</button>
+      </div>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="primary" id="btnSaveMasterItems" disabled>Simpan ke Masterlist</button>
+      <span id="reviewStatus" class="hint"></span>
+    </div>
+  </div>
+
+  
+  <div class="sec">
+    <div class="sec-head">4. Riwayat Compare</div>
+    <div id="historyList" class="hint">Belum ada riwayat.</div>
+  </div>
+</main>
+
+<nav class="bottom-nav">
+  <a class="nav-item" href="dashboard.html" title="Dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></a>
+  <a class="nav-item" href="index.html" title="Cari Teks Foto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></a>
+  <a class="nav-item" href="batch.html" title="Cari Massal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M9 14h6"/><path d="M9 18h6"/><path d="M9 10h6"/></svg></a>
+  <div style="position:relative" id="navSettingsWrapper" style="display:none">
+    <button class="nav-item" id="navSettingsBtn" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg></button>
+    <div class="settings-dd" id="navSettingsDD">
+      <button id="clearAllBtn" style="color:var(--red)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Reset Semua Data MC</button>
+<div class="sep"></div>
+      <button id="revokeBtn" style="color:var(--red)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        Putus Koneksi Drive (Ganti Akun)
+      </button>
+    </div>
+  </div>
+</nav>
+<div id="toast"></div>
+<script src="mc.js"></script>
+<script src="/account.js?v=20261006"></script>
+</body>
+</html>

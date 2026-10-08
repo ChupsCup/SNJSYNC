@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cari Massal — SNJ SYNC</title>
+<script>document.documentElement.setAttribute('data-theme', localStorage.getItem('ctf-theme') || 'dark');</script>
+<style>@view-transition{navigation:auto}
+@media (prefers-reduced-motion:no-preference){
+::view-transition-old(root){animation:none;opacity:1}
+::view-transition-new(root){animation:snjIn 170ms ease both}
+}
+@keyframes snjIn{from{opacity:0}}</style>
+<style>
+:root{--bg:#09090b;--card:#18181b;--border:#27272a;--text:#fafafa;--text2:#a1a1aa;--accent:#f97316;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--radius:14px}
+
+html[data-theme="light"]{--bg:#fafafa;--card:#fff;--border:#e4e4e7;--text:#18181b;--text2:#71717a;--accent:#ea580c}
+
+*{box-sizing:border-box;margin:0}
+
+body{font-family:Inter,'Segoe UI',system-ui,-apple-system,sans-serif;font-size:14px;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;padding-bottom:80px}
+
+body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.72))}
+html[data-theme="light"] body::before{background:linear-gradient(180deg,rgba(255,252,240,.60),rgba(255,252,240,.82))}
+body::after{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;background:url('/bg-dashboard.jpeg') center/cover no-repeat}
+
+
+.topbar{position:sticky;top:clamp(8px,1.2vw,14px);z-index:40;
+  margin:clamp(8px,1.2vw,14px) clamp(14px,1.1vw,20px) 0;
+  display:flex;align-items:center;border-radius:14px;
+  background:color-mix(in srgb, var(--bg) 94%, transparent);
+  border:1px solid var(--border);box-shadow:0 8px 28px rgba(0,0,0,.38)}
+
+.inner{width:100%;display:flex;align-items:center;padding:10px 16px}
+
+.brand{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+
+.logo{width:36px;height:36px;border-radius:10px;background:var(--accent);display:grid;place-items:center;font-weight:800;color:#fff;font-size:12px;letter-spacing:-.5px;flex-shrink:0}
+
+.brand-text{display:flex;flex-direction:column;min-width:0}
+
+.brand-text h1{font-size:15px;font-weight:700;letter-spacing:-.3px;white-space:nowrap}
+
+.brand-text .sub{color:var(--text2);font-size:11.5px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.brand-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+
+.gdot{width:8px;height:8px;border-radius:50%;background:var(--text2);flex-shrink:0}
+
+.gdot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+
+  .gdot.off{background:var(--red);box-shadow:0 0 8px var(--red)}
+
+main{width:100%;margin:0 auto;padding:16px 20px}
+
+.sec{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+
+.sec-head{font-weight:700;font-size:13px;margin-bottom:10px;color:var(--text)}
+
+textarea{width:100%;min-height:130px;padding:10px 12px;font-size:12px;font-family:'SF Mono',Consolas,monospace;line-height:1.5;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);outline:none;resize:vertical;transition:border-color .15s}
+
+textarea:focus{border-color:var(--accent)}
+
+textarea::placeholder{color:var(--text2)}
+
+.rowbtns{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 0}
+
+button.ghost{background:transparent;color:var(--accent);border:1px solid color-mix(in srgb, var(--accent) 40%, transparent);padding:8px 16px;border-radius:10px;font-weight:600;font-size:12px;cursor:pointer;transition:background .15s}
+
+button.ghost:hover{background:color-mix(in srgb, var(--accent) 10%, transparent)}
+
+button.ghost:disabled{opacity:.4;cursor:default;pointer-events:none}
+
+button.primary{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 20px;font-weight:600;font-size:12.5px;cursor:pointer;transition:opacity .15s}
+
+button.primary:hover{opacity:.9}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+
+.chip{padding:6px 12px;border-radius:999px;font-size:11.5px;font-weight:600;background:var(--card);border:1px solid var(--border)}
+
+.chip .v{font-size:14px}
+
+.chip.g{color:var(--green);border-color:var(--green);background:color-mix(in srgb, var(--green) 10%, transparent)}
+
+.chip.r{color:var(--accent);border-color:var(--accent);background:color-mix(in srgb, var(--accent) 10%, transparent)}
+
+.chip.b{color:#60a5fa;border-color:#60a5fa;background:color-mix(in srgb, #60a5fa 10%, transparent)}
+
+#tbl{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}
+
+#tbl th{position:sticky;top:0;background:var(--card);color:var(--text2);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);z-index:10;font-weight:600}
+
+#tbl td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+
+#tbl tr:hover{background:color-mix(in srgb, var(--text) 3%, transparent)}
+
+.status{font-weight:700;padding:3px 10px;border-radius:999px;font-size:10px;white-space:nowrap;display:inline-block}
+
+.status.ada{color:var(--green);border:1px solid var(--green);background:color-mix(in srgb, var(--green) 10%, transparent)}
+
+.status.tidak{color:var(--accent);border:1px solid var(--accent);background:color-mix(in srgb, var(--accent) 10%, transparent)}
+
+.cand-thumb{width:52px;height:52px;object-fit:cover;border-radius:8px;border:2px solid var(--border);cursor:pointer;display:block;transition:border-color .15s}
+
+.cand-thumb:hover{border-color:var(--text2)}
+
+.cand-thumb.sel{border-color:var(--green);box-shadow:0 0 0 2px color-mix(in srgb, var(--green) 25%, transparent)}
+
+.missing{color:var(--accent);font-weight:600}
+
+.estchip{display:inline-block;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:700;color:#60a5fa;border:1px solid #60a5fa;margin:1px}
+
+#toast{position:fixed;left:50%;bottom:100px;z-index:80;transform:translateX(-50%) translateY(16px);background:var(--card);border:1px solid var(--border);padding:10px 18px;border-radius:10px;font-weight:600;font-size:12.5px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none}
+
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+#toast.ok{border-color:var(--green);color:var(--green)}
+
+#toast.fail{border-color:var(--accent);color:var(--accent)}
+
+#expModal{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.6);backdrop-filter:blur(8px)}
+
+#expModal .box{background:var(--card);border:1px solid var(--border);border-radius:16px;max-width:500px;width:100%;padding:0 0 14px;overflow:hidden}
+
+.exprow{display:flex;gap:8px;margin:8px 0;align-items:center;padding:0 16px}
+
+.exprow select,.exprow input{flex:1;padding:8px 12px;font-size:12.5px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);outline:none;min-width:0}
+
+#expResult{margin:8px 16px;padding:8px 12px;border-radius:8px;font-size:12.5px;font-weight:600;display:none}
+
+#expResult.ok{display:block;background:color-mix(in srgb, var(--green) 12%, transparent);color:var(--green);border:1px solid var(--green)}
+
+#expResult.fail{display:block;background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);border:1px solid var(--accent)}
+
+.hint{font-size:11px;color:var(--text2);margin-top:6px}
+
+.settings-dd{display:none;position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);min-width:220px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.03) inset;z-index:110;overflow:hidden;padding:6px;backdrop-filter:blur(20px)}
+
+.settings-dd.show{display:block;animation:ddIn .15s ease}
+
+@keyframes ddIn{from{opacity:0;transform:translateX(-50%) translateY(6px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+.settings-dd button{display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;border:none;background:none;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;text-align:left;border-radius:10px;transition:background-color .12s,color .12s,border-color .12s}
+
+.settings-dd button:hover{background:color-mix(in srgb, var(--accent) 10%, transparent);color:var(--text)}
+
+.settings-dd button svg{width:16px;height:16px;opacity:.6;flex-shrink:0}
+
+.settings-dd button:hover svg{opacity:1}
+
+.settings-dd .sep{height:1px;background:var(--border);margin:4px 8px}
+
+button.ghost:disabled,button.primary:disabled{opacity:.5;cursor:wait}
+
+.bottom-nav{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:100;display:flex;align-items:center;gap:2px;padding:6px 8px;border-radius:999px;border:1px solid var(--border);background:color-mix(in srgb, var(--bg) 94%, transparent);box-shadow:0 4px 24px rgba(0,0,0,.3)}
+
+html[data-theme="light"] .bottom-nav{box-shadow:0 4px 24px rgba(0,0,0,.08)}
+
+.nav-item{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;color:var(--text2);text-decoration:none;transition:background-color .15s,color .15s,border-color .15s;background:none;border:none;cursor:pointer}
+
+.nav-item:hover{color:var(--text)}
+
+.nav-item.active{background:color-mix(in srgb, var(--accent) 15%, transparent);color:var(--accent)}
+
+.nav-item svg{width:18px;height:18px}
+
+
+.alarm{
+  position:relative;isolation:isolate;display:flex;align-items:center;gap:16px;
+  border-radius:16px;overflow:hidden;padding:14px 18px;margin-bottom:12px;
+  border:1px solid color-mix(in srgb, var(--yellow) 60%, transparent);
+  background:
+    repeating-linear-gradient(135deg,color-mix(in srgb, var(--yellow) 13%, transparent) 0 18px,color-mix(in srgb, var(--yellow) 4%, transparent) 18px 36px),
+    linear-gradient(120deg,color-mix(in srgb, var(--yellow) 17%, transparent),color-mix(in srgb, var(--yellow) 3%, transparent));
+  animation:alBreath 2.4s ease-in-out infinite;
+}
+
+.alarm::before{
+  content:'';position:absolute;inset:0;pointer-events:none;opacity:.5;mix-blend-mode:screen;
+  background:repeating-linear-gradient(-115deg,transparent 0 26px,color-mix(in srgb, var(--yellow) 20%, transparent) 26px 40px,transparent 40px 66px);
+  animation:alTrail 3s linear infinite;
+}
+
+.alarm::after{
+  content:'';position:absolute;left:8%;right:8%;bottom:-2px;height:3px;border-radius:3px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--yellow),transparent);
+  filter:blur(2px);animation:alGlow 2s ease-in-out infinite;
+}
+
+.alarm-badge{
+  position:relative;flex:none;width:54px;height:54px;border-radius:16px;z-index:2;
+  display:grid;place-items:center;color:var(--yellow);
+  background:radial-gradient(circle at 50% 30%,color-mix(in srgb, var(--yellow) 32%, transparent),color-mix(in srgb, var(--yellow) 8%, transparent) 70%);
+  border:1px solid color-mix(in srgb, var(--yellow) 55%, transparent);
+}
+
+.alarm-badge svg{position:relative;z-index:2;animation:alWarn 1.4s ease-in-out infinite}
+
+.alarm-badge::before{
+  content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:conic-gradient(from 0deg,color-mix(in srgb, var(--yellow) 32%, transparent) 0 40deg,transparent 40deg 120deg,color-mix(in srgb, var(--yellow) 32%, transparent) 120deg 160deg,transparent 160deg 240deg,color-mix(in srgb, var(--yellow) 32%, transparent) 240deg 280deg,transparent 280deg 360deg);
+  animation:alRadar 6s linear infinite;
+}
+
+.alarm-badge::after{
+  content:'';position:absolute;inset:-3px;border-radius:inherit;pointer-events:none;
+  border:2px solid color-mix(in srgb, var(--yellow) 60%, transparent);
+  animation:alRing 1.6s ease-out infinite;
+}
+
+.alarm-txt{position:relative;z-index:2;flex:1;min-width:0}
+
+.alarm-title{
+  font-size:13.5px;font-weight:800;letter-spacing:.2px;color:var(--text);
+  display:flex;align-items:center;gap:8px;
+}
+
+.alarm-title .pulse-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--yellow);flex:none;
+  box-shadow:0 0 10px var(--yellow);animation:alBlink 1s steps(2) infinite;
+}
+
+.alarm-sub{font-size:11px;color:var(--text2);margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+
+.alarm-sub i{font-style:normal;color:var(--yellow);opacity:.92}
+
+.alarm-btn{
+  position:relative;z-index:3;flex:none;display:inline-flex;align-items:center;gap:7px;
+  padding:11px 20px;border:none;border-radius:12px;cursor:pointer;font-weight:800;font-size:12.5px;
+  color:#1c1200;overflow:hidden;
+  background:linear-gradient(160deg,#fde68a,#f59e0b 60%,#ea580c);
+  box-shadow:0 6px 18px color-mix(in srgb, var(--yellow) 35%, transparent),0 1px 0 rgba(255,255,255,.45) inset;
+  transition:transform .15s,box-shadow .2s;
+}
+
+.alarm-btn:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 10px 26px color-mix(in srgb, var(--yellow) 55%, transparent),0 1px 0 rgba(255,255,255,.5) inset}
+
+.alarm-btn:active{transform:translateY(0) scale(.97)}
+
+.alarm-btn::after{
+  content:'';position:absolute;top:-60%;bottom:-60%;left:-50%;width:30%;pointer-events:none;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.75),transparent);
+  transform:skewX(-20deg);animation:alSheen 2.8s ease-in-out infinite;
+}
+
+.alarm-btn svg,.alarm-btn span{position:relative;z-index:1}
+
+@keyframes alBreath{0%,100%{box-shadow:0 0 0 1px rgba(0,0,0,.25) inset,0 0 18px color-mix(in srgb, var(--yellow) 18%, transparent)}50%{box-shadow:0 0 0 1px rgba(0,0,0,.25) inset,0 0 34px color-mix(in srgb, var(--yellow) 40%, transparent)}}
+
+@keyframes alTrail{from{background-position:0 0}to{background-position:132px 0}}
+
+@keyframes alGlow{0%,100%{opacity:.4}50%{opacity:1}}
+
+@keyframes alRadar{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+
+@keyframes alRing{0%{transform:scale(.75);opacity:1}100%{transform:scale(1.55);opacity:0}}
+
+@keyframes alWarn{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+
+@keyframes alBlink{0%,49%{opacity:1}50%,100%{opacity:.12}}
+
+@keyframes alSheen{0%{left:-50%}55%,100%{left:130%}}
+
+@media(max-width:640px){
+  .alarm{flex-wrap:wrap;gap:10px;padding:12px 14px}
+
+  .alarm-title{font-size:12.5px}
+
+  .alarm-btn{width:100%;justify-content:center;margin-top:2px}
+
+}
+
+@media(max-width:640px){
+  .inner{padding:8px 12px}
+
+  .brand-text h1{font-size:13.5px}
+
+  .brand-text .sub{display:none}
+
+  main{padding:12px 14px}
+
+  .sec{padding:12px;border-radius:12px}
+
+  .sec-head{font-size:12px}
+
+  textarea{min-height:100px;font-size:11px}
+
+  .rowbtns{flex-direction:column}
+
+  .rowbtns button{width:100%;text-align:center}
+
+  #tbl{font-size:10.5px;display:block;overflow-x:auto}
+
+  #tbl th,#tbl td{padding:6px 8px}
+
+  .cand-thumb{width:40px;height:40px}
+
+  .chip{padding:5px 10px;font-size:10.5px}
+
+  .chip .v{font-size:12px}
+
+  #expModal .box{max-width:100%}
+
+  .exprow{flex-direction:column;gap:6px}
+
+  .exprow select,.exprow input{width:100%}
+
+  .bottom-nav{bottom:10px;gap:0;padding:4px 6px}
+
+  .nav-item{width:36px;height:36px}
+
+  .nav-item svg{width:16px;height:16px}
+
+}
+
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="inner">
+    <div class="brand">
+      <div class="logo">SNJ</div>
+      <div class="brand-text">
+        <h1>Cari Massal</h1>
+        <p class="sub">Paste daftar produk &rarr; periksa &rarr; review &rarr; ekspor.</p>
+      </div>
+      <div class="brand-right">
+        <div class="gdot" id="gdot" title="Google Drive"></div>
+      </div>
+    </div>
+  </div>
+</header>
+<main>
+  <div id="authBanner" class="alarm" style="display:none;margin-bottom:12px">
+    <div class="alarm-badge" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+    </div>
+    <div class="alarm-txt">
+      <div class="alarm-title"><span class="pulse-dot"></span>Drive Perlu Dihubungkan Ulang</div>
+      <div class="alarm-sub">Token kedaluwarsa &mdash; <i>login ulang biar indeks foto &amp; barcode tetap sinkron.</i></div>
+    </div>
+    <button class="alarm-btn" id="authReconnect" type="button"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg><span>Hubungkan</span></button>
+  </div>
+  <div class="sec">
+    <div class="sec-head">1. Paste daftar dari Excel (2 kolom: product name | item description)</div>
+    <textarea id="csvBox" placeholder="SWIFT - LIPS BULK PACK - EST 262&#9;SWIFT - LIPS BULK PACK - 72605 - EST 262&#10;NOLAN - PR CHUCK RIBS SHORT RIBS LP - 4593 - EST 80&#9;PR CHUCK RIBS SHORT RIBS LP"></textarea>
+    <div class="hint">Pisah pakai tab, koma, atau semicolon. Kalau cuma 1 kolom, dianggap product name.</div>
+    <div class="rowbtns">
+      <button class="primary" id="btnCheck">Periksa ke Index</button>
+      <button class="ghost" id="btnExp" disabled>Ekspor Foto Terpilih</button>
+    </div>
+  </div>
+  <div class="sec" id="secResult" style="display:none">
+    <div class="sec-head">2. Hasil &mdash; review dulu, pilih foto, baru ekspor</div>
+    <div class="chips" id="sumChips"></div>
+    <div style="overflow:auto;max-height:70vh">
+      <table id="tbl">
+        <thead><tr>
+          <th>No</th><th>Product / Desc</th><th>EST</th><th>Status</th><th>Catatan</th><th>Foto</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+<nav class="bottom-nav">
+  <a class="nav-item" href="dashboard.html" title="Dashboard">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+  </a>
+  <a class="nav-item" href="index.html" title="Cari Teks Foto">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+  </a>
+<a class="nav-item active" href="batch.html" title="Cari Massal">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M9 14h6"/><path d="M9 18h6"/><path d="M9 10h6"/></svg>
+  </a>
+  <div style="position:relative" id="navSettingsWrapper" style="display:none">
+    <button class="nav-item" id="navSettingsBtn" title="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+    <div class="settings-dd" id="navSettingsDD">
+      <button id="pickBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+        Pilih Folder Foto
+      </button>
+<div class="sep"></div>
+      <button id="idxBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+        Sinkron Foto
+      </button>
+<div class="sep"></div>
+      <button id="revokeBtn" style="color:var(--red)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        Putus Koneksi Drive (Ganti Akun)
+      </button>
+    </div>
+  </div>
+</nav>
+<div id="expModal">
+  <div class="box">
+    <div class="sec-head" style="padding:14px 16px 0" id="expTitle">Ekspor ke Google Drive</div>
+    <div id="expStatus" style="font-size:12.5px;color:var(--text2);margin:8px 16px">Memeriksa koneksi...</div>
+    <div id="expStep1" style="display:none"><div style="font-size:12.5px;color:var(--text2);margin:6px 16px">Pilih <b>client_secret.json</b>:</div><div class="exprow"><input type="file" id="expSecret" accept=".json" style="font-size:12.5px"></div></div>
+    <div id="expStep2" style="display:none"><div class="exprow"><button class="ghost" id="expConnect">Hubungkan ke Google</button></div></div>
+    <div id="expStep3" style="display:none">
+      <div class="exprow"><input type="text" id="expFolderSearch" placeholder="Cari folder..."><button class="ghost" id="expFolderRefresh">Muat</button></div>
+      <div class="exprow"><select id="expFolder"><option>Memuat...</option></select></div>
+      <div class="exprow"><button class="primary" id="expRun">Ekspor</button></div>
+    </div>
+    <div id="expResult"></div>
+  </div>
+</div>
+<div id="toast"></div>
+<div id="batchModal" style="position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.6);backdrop-filter:blur(8px)">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;max-width:90vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">
+    <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <span id="bmTitle" style="font-size:12px;color:var(--text2)"></span>
+      <button id="bmClose" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2)">&times;</button>
+    </div>
+    <div style="flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;padding:8px">
+      <img id="bmImg" style="max-width:100%;max-height:75vh;object-fit:contain;border-radius:6px">
+    </div>
+    <div id="bmInfo" style="padding:8px 14px;border-top:1px solid var(--border);font-size:11px;color:var(--text2)"></div>
+  </div>
+</div>
+<div id="fsOverlay" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.95);flex-direction:column;align-items:center;justify-content:center;overflow:hidden">
+  <div style="position:absolute;top:12px;right:12px;z-index:101">
+    <button id="fsBack" style="padding:6px 14px;border-radius:8px;border:1px solid #444;background:rgba(255,255,255,.08);color:#fff;font-size:12px;font-weight:600;cursor:pointer">Kembali</button>
+  </div>
+  <div id="fsInfo" style="position:absolute;top:12px;left:12px;z-index:101;max-width:50%;font-size:11px;color:#aaa;background:rgba(0,0,0,.7);padding:8px 12px;border-radius:8px;line-height:1.5;white-space:pre-wrap;word-break:break-word"></div>
+  <img id="fsImg" style="position:absolute;left:0;top:0;transform-origin:0 0;cursor:grab" alt="">
+</div>
+<script>
+const navSettingsBtn = document.getElementById('navSettingsBtn');
+const navSettingsDD = document.getElementById('navSettingsDD');
+navSettingsBtn.addEventListener('click', (e) => { e.stopPropagation(); navSettingsDD.classList.toggle('show'); });
+document.addEventListener('click', () => navSettingsDD.classList.remove('show'));
+navSettingsDD.addEventListener('click', (e) => e.stopPropagation());
+
+async function checkSuperAdmin() {
+  try {
+    const d = await (await fetch('/api/auth/me')).json();
+    const isSuper = d.loggedIn && d.session && d.session.role === 'superadmin';
+    const wrapper = document.getElementById('navSettingsWrapper');
+    if (wrapper) wrapper.style.display = isSuper ? '' : 'none';
+  } catch (_) {
+    const wrapper = document.getElementById('navSettingsWrapper');
+    if (wrapper) wrapper.style.display = 'none';
+  }
+}
+checkSuperAdmin();
+
+document.getElementById('revokeBtn').onclick = async () => {
+  if (!confirm('Putus koneksi Google Drive?\n\nIni akan menghapus token tersimpan.\nKemudian bisa hubungkan akun Google lain lewat menu Ekspor.')) return;
+  try {
+    const d = await (await fetch('/api/gdrive/revoke', { method: 'POST' })).json();
+    if (d.error) throw new Error(d.error);
+    alert(d.msg || 'Token Drive dihapus');
+    document.getElementById('navSettingsDD').classList.remove('show');
+    checkSuperAdmin();
+  } catch (err) { alert('Gagal: ' + err.message); }
+};
+</script>
+<script src="batch.js"></script>
+<script src="/account.js?v=20261006"></script>
+</body>
+</html>

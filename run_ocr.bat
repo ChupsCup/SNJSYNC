@@ -1,0 +1,1 @@
+@echo offcd /d D:\Website\CTF"C:\Users\Ucup\AppData\Local\Programs\Python\Python312\python.exe" -u ocr.py > ocr.log 2>&1

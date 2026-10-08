@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SNJ SYNC — Master Data</title>
+<style>@view-transition{navigation:auto}
+@media (prefers-reduced-motion:no-preference){
+::view-transition-old(root){animation:none;opacity:1}
+::view-transition-new(root){animation:snjIn 170ms ease both}
+}
+@keyframes snjIn{from{opacity:0}}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"></noscript>
+<style>
+:root{
+  --bg:#09090b;
+  --card:#18181b;
+  --border:#27272a;
+  --text:#fafafa;
+  --text2:#a1a1aa;
+  --accent:#f97316;
+  --green:#22c55e;
+  --red:#ef4444;
+  --tile:var(--card);
+  --topbar:color-mix(in srgb, var(--bg) 80%, transparent);
+  --ink:#fafafa;
+  --ink60:#a1a1aa;
+  --r:16px;
+  --shadow:0 10px 30px rgba(0,0,0,.38);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+html,body{height:100%}
+
+body{
+  font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-size:14px;
+  color:var(--ink);
+  background:var(--bg);
+  -webkit-font-smoothing:antialiased;
+}
+
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:linear-gradient(180deg, rgba(0,0,0,.42), rgba(0,0,0,.72));
+}
+body::after{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;background:url('/bg-dashboard.jpeg') center/cover no-repeat}
+
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+
+
+[hidden]{display:none !important}
+
+h1,h2,.wordmark{font-family:'Space Grotesk',system-ui,sans-serif;letter-spacing:-.03em}
+
+
+.topbar{
+  position:fixed;
+  top:clamp(10px,1.2vw,16px);
+  left:clamp(14px,1.1vw,24px);
+  right:clamp(14px,1.1vw,24px);
+  z-index:10;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 22px;border-radius:14px;
+  background:var(--topbar);
+  box-shadow:0 8px 24px rgba(0,0,0,.4);
+  border:1px solid var(--border);
+}
+
+.brand{display:flex;align-items:center;gap:12px}
+
+.brand-mark{
+  width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
+  background:var(--accent);color:#fff;font-weight:700;font-size:13px;
+}
+
+.wordmark{font-size:18px;font-weight:700;color:var(--ink);line-height:1}
+
+
+.bento{
+  position:relative;z-index:1;
+  display:grid;gap:20px;
+  grid-template-columns:repeat(12,1fr);
+grid-template-areas:
+    "hero hero hero hero hero hero hero hero tall tall tall tall"
+    "status status status status wide wide wide wide wide wide wide wide"
+    "full full full full full full full full full full full full"
+    "acct acct acct acct acct acct acct acct acct acct acct acct";
+width:100%;margin:0 auto;
+  padding:104px clamp(14px,1.1vw,24px) 110px;
+}
+
+.tile{
+  background:var(--tile);border-radius:var(--r);
+  box-shadow:var(--shadow);
+  border:1px solid var(--border);
+}
+
+
+.hero{grid-area:hero;min-height:340px;padding:34px 38px;display:flex;flex-direction:column;justify-content:space-between;gap:26px}
+
+.hero h1{font-size:54px;font-weight:700;line-height:1.02}
+
+.hero .lede{font-size:16px;line-height:1.6;color:var(--ink60);max-width:520px;font-weight:400}
+
+.hero .chips{display:flex;flex-wrap:wrap;gap:10px}
+
+.chip{
+  font-size:11.5px;font-weight:500;color:var(--text2);
+  background:var(--card);border:1px solid var(--border);padding:7px 12px;border-radius:999px;
+}
+
+
+.status{grid-area:status;min-height:160px;padding:22px 24px;display:flex;flex-direction:column;gap:14px}
+
+.status .head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+
+.status .label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink60)}
+
+.dot{width:10px;height:10px;border-radius:50%;background:var(--text2);flex:none}
+
+.dot.on{background:var(--green);box-shadow:0 0 0 4px rgba(34,197,94,.18)}
+
+  .dot.off{background:var(--red);box-shadow:0 0 0 4px rgba(239,68,68,.18)}
+
+.status .value{font-family:'Space Grotesk',system-ui,sans-serif;font-size:17px;font-weight:700;letter-spacing:-.02em}
+
+.status .meta{font-size:11.5px;line-height:1.7;color:var(--ink60)}
+
+
+.tall,.wide,.full,.acct{text-decoration:none;color:var(--ink);position:relative;overflow:hidden;transition:transform .2s ease,box-shadow .2s ease}
+
+.tall{cursor:pointer;grid-area:tall;min-height:340px;padding:24px;display:flex;flex-direction:column;gap:14px}
+
+.wide{cursor:pointer;grid-area:wide;min-height:170px;padding:26px 34px;display:flex;align-items:center;gap:22px}
+
+.full{cursor:pointer;grid-area:full;min-height:150px;padding:26px 34px;display:flex;align-items:center;gap:22px}
+
+
+.acct{cursor:pointer;grid-area:acct;min-height:150px;padding:26px 34px;display:flex;align-items:center;gap:22px}
+
+.tile-icon{
+  width:44px;height:44px;border-radius:12px;display:grid;place-items:center;
+  background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);
+  transition:background .2s ease,color .2s ease,transform .2s ease;
+}
+
+.tall h2{font-size:19px;font-weight:600}
+
+.tall p{font-size:12.5px;line-height:1.55;color:var(--ink60)}
+
+.pill{
+  align-self:flex-start;font-size:10.5px;font-weight:600;
+  color:var(--green);border:1px solid var(--green);padding:5px 11px;border-radius:999px;
+  background:color-mix(in srgb, var(--green) 10%, transparent);
+}
+
+.bot{margin-top:auto;display:flex;align-items:center;justify-content:space-between}
+
+.wide .tile-icon,.full .tile-icon,.acct .tile-icon{width:52px;height:52px;flex:none}
+
+.wide .txt,.full .txt,.acct .txt{flex:1;min-width:0}
+
+.wide h2,.full h2,.acct h2{font-size:21px;font-weight:600}
+
+.wide p,.full p,.acct p{font-size:12.5px;line-height:1.55;color:var(--ink60);margin-top:3px}
+
+
+.tall:hover,.wide:hover,.full:hover,.acct:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(0,0,0,.5)}
+
+.tall:hover .tile-icon,.wide:hover .tile-icon,.full:hover .tile-icon,.acct:hover .tile-icon{background:#E7EAEF;color:#18181b;transform:scale(1.08) rotate(-4deg)}
+
+.tall:hover,.wide:hover,.full:hover,.acct:hover{box-shadow:0 14px 38px rgba(0,0,0,.48);border-color:color-mix(in srgb, var(--accent) 40%, var(--border))}
+
+.tall:active,.wide:active,.full:active,.acct:active{transform:translateY(-1px) scale(.985)}
+
+.tall:focus-visible,.wide:focus-visible,.full:focus-visible,.acct:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+
+
+.footer{
+  position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:10;
+  padding:9px 20px;border-radius:999px;
+  background:var(--topbar);color:var(--ink60);
+  
+  font-size:11px;font-weight:500;letter-spacing:.02em;
+  box-shadow:0 6px 20px rgba(0,0,0,.4);
+  border:1px solid var(--border);white-space:nowrap;
+}
+
+.footer b{font-weight:600;color:var(--ink)}
+
+
+@media(max-width:760px){
+  .topbar{padding:9px 14px}
+
+  .wordmark{font-size:15px}
+
+  .bento{grid-template-columns:repeat(2,1fr);grid-template-areas:"hero hero" "status tall" "wide wide" "full full" "acct acct";gap:12px;padding:84px 14px 90px}
+
+  .hero{min-height:0;padding:22px 20px;gap:18px}
+
+  .hero h1{font-size:38px}
+
+  .hero .lede{font-size:13.5px}
+
+  .chip{font-size:10px;padding:5px 9px}
+
+  .status{min-height:0;padding:18px 16px}
+
+  .status .value{font-size:15px}
+
+  .status .meta{font-size:10.5px}
+
+  .tall{min-height:0;padding:18px 16px}
+
+  .tall h2{font-size:16px}
+
+  .tall p{font-size:11px}
+
+  .tile-icon{width:36px;height:36px}
+
+  .wide{min-height:0;padding:20px 18px;gap:14px}
+
+  .wide h2{font-size:17px}
+
+  .wide p{font-size:11px}
+
+  .wide .tile-icon{width:42px;height:42px}
+
+  .full{min-height:0;padding:18px 14px;gap:12px}
+
+  .full h2{font-size:15px}
+
+  .full p{font-size:10.5px}
+
+  .full .tile-icon{width:36px;height:36px}
+
+  .acct{min-height:0;padding:18px 14px;gap:12px}
+
+  .acct h2{font-size:15px}
+
+  .acct p{font-size:10.5px}
+
+  .acct .tile-icon{width:36px;height:36px}
+
+  .footer{font-size:9.5px;bottom:12px;padding:7px 14px}
+
+}
+
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">SNJ</div>
+    <div class="wordmark">SNJ SYNC</div>
+  </div>
+</header>
+
+<main class="bento">
+
+  <section class="tile hero">
+    <div>
+      <h1 id="h1">SNJ SYNC</h1>
+      <p class="lede">Standardized Data &amp; Business Synchronization</p>
+    </div>
+    <div class="chips">
+      <span class="chip mono" id="chipIdx">&hellip; foto di Drive</span>
+    </div>
+  </section>
+
+  <section class="tile status">
+    <div class="head">
+      <span class="label">Status Sistem</span>
+      <span class="dot" id="dot"></span>
+    </div>
+    <div>
+      <div class="value" id="stVal">Memuat&hellip;</div>
+      <div class="meta" id="stMeta">&nbsp;</div>
+    </div>
+  </section>
+
+  <a class="tile tall" href="index.html">
+    <div class="tile-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+    </div>
+    <h2>Cari Teks Foto</h2>
+    <p>Ketik kata, langsung ketemu foto invoice, packing list &amp; label di Google Drive.</p>
+    <div class="bot">
+      <span class="pill">Aktif</span>
+    </div>
+  </a>
+
+  <a class="tile wide" href="mc.html">
+    <div class="tile-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg>
+    </div>
+    <div class="txt">
+      <h2>Masterlist Compare</h2>
+      <p>Import Excel, paste masterlist, periksa persis &mdash; flag NEW ITEM / EXISTING.</p>
+    </div>
+  </a>
+
+<a class="tile full" href="clean.html">
+    <div class="tile-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/><path d="m15 6 6 6"/></svg>
+    </div>
+    <div class="txt">
+      <h2>Master Model Data</h2>
+      <p>Upload Master List &mdash; kolom No. Barang &amp; Deskripsi yang tersebar jadi satu kolom, baris/kolom kosong dibuang, langsung jadi file Excel bersih.</p>
+    </div>
+  </a>
+
+  
+  <a class="tile acct" href="accounts.html" id="tileAccounts" hidden>
+    <div class="tile-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    </div>
+    <div class="txt">
+      <h2>Manajemen Akun</h2>
+      <p>Tambah admin baru, ubah username / password, hapus akun. Khusus Super Admin.</p>
+    </div>
+  </a>
+
+</main>
+
+<footer class="footer">SNJ Group &mdash; <b>Master Data Division</b></footer>
+
+<script>
+function fmt(n){return (n||0).toLocaleString('id-ID')}
+
+async function boot(){
+  const dot=document.getElementById('dot'), v=document.getElementById('stVal'), m=document.getElementById('stMeta');
+
+  
+  fetch('/api/auth/me',{cache:'no-store'}).then(r=>r.json()).then(d=>{
+    const el=document.getElementById('tileAccounts');
+    if(el) el.hidden = !(d && d.loggedIn && d.session && d.session.role==='superadmin');
+  }).catch(()=>{});
+
+  try{
+    const [g,st]=await Promise.all([
+      fetch('/api/gdrive/status').then(r=>r.json()),
+      fetch('/api/stats').then(r=>r.json())
+    ]);
+    document.getElementById('chipIdx').textContent=fmt(st.total)+' foto di Drive';
+    if(g.authorized){
+      dot.className='dot on';
+      v.textContent='Drive Terhubung';
+      m.textContent=(g.photosFolderName||g.folderName||'Google Drive')+' \u00b7 '+fmt(st.total)+' foto \u00b7 '+fmt(st.withOcr||0)+' OCR \u00b7 '+fmt(st.withBarcodes||0)+' barcode';
+    }else{
+      dot.className='dot off';
+      v.textContent=g.configured?'Drive Terputus':'Perlu konfigurasi';
+      m.textContent=g.configured?'Token Google Drive tidak valid. Buka halaman Cari Teks Foto untuk login ulang.':'Buka halaman Cari Teks Foto untuk menghubungkan.';
+    }
+
+  }catch(e){
+    dot.className='dot off';
+    v.textContent='Status offline';
+    m.textContent='Server tidak merespons.';
+    document.getElementById('chipIdx').textContent='Offline';
+  }
+
+}
+
+boot();
+setInterval(boot, 30000);
+</script>
+<script src="/account.js?v=20261006"></script>
+</body>
+</html>

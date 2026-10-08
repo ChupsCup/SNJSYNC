@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manajemen Akun — SNJ SYNC</title>
+<script>document.documentElement.setAttribute('data-theme', localStorage.getItem('ctf-theme') || 'dark');</script>
+<style>@view-transition{navigation:auto}
+@media (prefers-reduced-motion:no-preference){
+::view-transition-old(root){animation:none;opacity:1}
+::view-transition-new(root){animation:snjIn 170ms ease both}
+}
+@keyframes snjIn{from{opacity:0}}</style>
+<style>
+:root{--bg:#09090b;--card:#18181b;--border:#27272a;--text:#fafafa;--text2:#a1a1aa;--accent:#f97316;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--radius:14px}
+
+html[data-theme="light"]{--bg:#fafafa;--card:#fff;--border:#e4e4e7;--text:#18181b;--text2:#71717a;--accent:#ea580c}
+
+*{box-sizing:border-box;margin:0}
+
+body{font-family:Inter,'Segoe UI',system-ui,-apple-system,sans-serif;font-size:14px;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;padding-bottom:80px}
+
+body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.72))}
+html[data-theme="light"] body::before{background:linear-gradient(180deg,rgba(255,252,240,.60),rgba(255,252,240,.82))}
+body::after{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;background:url('/bg-dashboard.jpeg') center/cover no-repeat}
+
+
+.topbar{position:sticky;top:clamp(8px,1.2vw,14px);z-index:40;
+  margin:clamp(8px,1.2vw,14px) clamp(14px,1.1vw,20px) 0;
+  display:flex;align-items:center;border-radius:14px;
+  background:color-mix(in srgb, var(--bg) 94%, transparent);
+  border:1px solid var(--border);box-shadow:0 8px 28px rgba(0,0,0,.38)}
+.topbar .inner{width:100%;display:flex;align-items:center;padding:10px 16px}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--accent);display:grid;place-items:center;font-weight:800;color:#fff;font-size:12px;flex-shrink:0}
+.brand-text h1{font-size:15px;font-weight:700;letter-spacing:-.3px}
+.brand-text .sub{color:var(--text2);font-size:11.5px;margin-top:1px}
+
+main{width:100%;margin:0 auto;padding:16px 20px}
+
+.sec{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.sec-head{font-weight:700;font-size:13px;margin-bottom:10px;color:var(--text);display:flex;align-items:center;gap:8px}
+.sec-desc{font-size:11.5px;color:var(--text2);line-height:1.65;margin-bottom:12px}
+
+.badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;letter-spacing:.3px}
+.badge.super{background:color-mix(in srgb, var(--accent) 18%, transparent);color:var(--accent)}
+.badge.admin{background:color-mix(in srgb, var(--text2) 16%, transparent);color:var(--text2)}
+.badge.you{background:color-mix(in srgb, var(--green) 16%, transparent);color:var(--green)}
+.badge.live{background:color-mix(in srgb, var(--green) 14%, transparent);color:var(--green)}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:10px}
+label{display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:5px}
+input,select{width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;outline:none;font-family:inherit}
+input:focus,select:focus{border-color:var(--accent)}
+input::placeholder{color:var(--text2);opacity:.6}
+
+
+.pw{position:relative}
+.pw input{padding-right:38px}
+.pw-eye{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:27px;height:27px;display:grid;place-items:center;background:none;border:none;border-radius:7px;cursor:pointer;color:var(--text2);padding:0;transition:color .15s,background-color .15s}
+.pw-eye:hover{color:var(--text);background:color-mix(in srgb, var(--text) 8%, transparent)}
+.pw-eye:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+button.primary{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-weight:600;font-size:12.5px;cursor:pointer;transition:opacity .15s;font-family:inherit}
+button.primary:hover{opacity:.9}
+button.primary:disabled{opacity:.5;cursor:wait}
+button.ghost{background:transparent;color:var(--text2);border:1px solid var(--border);padding:8px 13px;border-radius:10px;font-weight:600;font-size:11.5px;cursor:pointer;transition:border-color .15s,color .15s;font-family:inherit}
+button.ghost:hover:not(:disabled){color:var(--text);border-color:var(--text2)}
+button.ghost:disabled{opacity:.35;cursor:not-allowed}
+button.danger{color:var(--red);border-color:color-mix(in srgb, var(--red) 40%, transparent)}
+button.danger:hover:not(:disabled){color:var(--red);border-color:var(--red);background:color-mix(in srgb, var(--red) 10%, transparent)}
+button.warn{color:var(--yellow);border-color:color-mix(in srgb, var(--yellow) 40%, transparent)}
+button.warn:hover:not(:disabled){color:var(--yellow);border-color:var(--yellow);background:color-mix(in srgb, var(--yellow) 10%, transparent)}
+
+.row-actions{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+
+.tblbox{width:100%;overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:660px}
+th,td{text-align:left;padding:11px 12px;font-size:12.5px;border-bottom:1px solid var(--border);white-space:nowrap}
+th{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);font-weight:700}
+td.u{font-weight:600}
+td.muted{color:var(--text2);font-size:11.5px}
+tbody tr:hover{background:color-mix(in srgb, var(--accent) 4%, transparent)}
+tbody tr:last-child td{border-bottom:none}
+
+.empty{padding:22px;text-align:center;color:var(--text2);font-size:12.5px}
+
+.msg{display:none;margin-top:10px;padding:10px 12px;border-radius:10px;font-size:12px;border:1px solid transparent}
+.msg.ok{display:block;background:color-mix(in srgb, var(--green) 12%, transparent);border-color:color-mix(in srgb, var(--green) 35%, transparent);color:var(--green)}
+.msg.err{display:block;background:color-mix(in srgb, var(--red) 12%, transparent);border-color:color-mix(in srgb, var(--red) 35%, transparent);color:var(--red)}
+
+.note{font-size:11px;color:var(--text2);line-height:1.65;margin-top:10px}
+.note b{color:var(--text)}
+
+
+.bottom-nav{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:100;display:flex;
+  align-items:center;gap:2px;padding:6px 8px;border-radius:999px;border:1px solid var(--border);
+  background:color-mix(in srgb, var(--bg) 94%, transparent);box-shadow:0 4px 24px rgba(0,0,0,.3)}
+html[data-theme="light"] .bottom-nav{box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.nav-item{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;
+  color:var(--text2);text-decoration:none;background:none;border:none;cursor:pointer;
+  transition:color .15s,background-color .15s}
+.nav-item:hover{color:var(--text)}
+.nav-item svg{width:18px;height:18px}
+
+@media(max-width:640px){
+  .topbar .inner{padding:8px 12px}
+  .brand-text h1{font-size:14px}.brand-text .sub{display:none}
+  .logo{width:32px;height:32px;font-size:11px}
+  main{padding:12px 14px}
+  .sec{padding:12px;border-radius:12px}
+  .nav-item{width:36px;height:36px}.nav-item svg{width:16px;height:16px}
+  .bottom-nav{bottom:10px}
+  .grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="inner">
+    <div class="brand">
+      <div class="logo">SNJ</div>
+      <div class="brand-text">
+        <h1>Manajemen Akun</h1>
+        <div class="sub">Super Admin</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  
+  <div class="sec">
+    <div class="sec-head">1. Tambah Admin <span class="badge super">Super Admin</span></div>
+    <div class="sec-desc">Buat akun baru dengan username dan password. Password hanya disimpan sebagai hash bcrypt &mdash; tidak pernah ditampilkan lagi setelah disimpan.</div>
+    <div class="grid">
+      <div>
+        <label for="cUser">Username</label>
+        <input id="cUser" type="text" placeholder="mis. budi" autocomplete="off" spellcheck="false">
+      </div>
+      <div>
+        <label for="cPass">Password</label>
+        <div class="pw">
+          <input id="cPass" type="password" placeholder="minimal 6 karakter" autocomplete="new-password" spellcheck="false">
+          <button type="button" class="pw-eye" data-eye="cPass" aria-pressed="false" aria-label="Tampilkan password" title="Tampilkan password">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div>
+        <label for="cRole">Role</label>
+        <select id="cRole">
+          <option value="admin">Admin</option>
+          <option value="superadmin">Super Admin</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        <button class="primary" id="btnCreate">Buat Akun</button>
+      </div>
+    </div>
+    <div class="msg" id="cMsg"></div>
+    <div class="note">Username 3&ndash;32 karakter (huruf, angka, <b>.</b> <b>_</b> <b>-</b>). Password 6&ndash;72 karakter.</div>
+  </div>
+
+  
+  <div class="sec">
+    <div class="sec-head">2. Daftar Akun</div>
+    <div class="sec-desc">Ubah username / password / role, atau hapus akun. Setiap perubahan otomatis mengeluarkan akun tersebut dari semua browser.</div>
+    <div class="tblbox">
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Dibuat</th>
+            <th>Login Terakhir</th>
+            <th>Sesi Aktif</th>
+            <th style="text-align:right">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr><td colspan="6" class="empty">Memuat...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="msg" id="lMsg"></div>
+  </div>
+
+  
+  <div class="sec" id="editSec">
+    <div class="sec-head">3. Ubah Akun</div>
+    <div class="sec-desc" id="eNote">Klik <b>Ubah</b> pada salah satu baris di tabel untuk mengedit akunnya.</div>
+    <div class="grid">
+      <div>
+        <label for="eUser">Username Baru</label>
+        <input id="eUser" type="text" placeholder="username sekarang" autocomplete="off" spellcheck="false">
+      </div>
+      <div>
+        <label for="ePass">Password Baru</label>
+        <div class="pw">
+          <input id="ePass" type="password" placeholder="kosongkan = tidak diubah" autocomplete="new-password" spellcheck="false">
+          <button type="button" class="pw-eye" data-eye="ePass" aria-pressed="false" aria-label="Tampilkan password" title="Tampilkan password">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div>
+        <label for="eRole">Role</label>
+        <select id="eRole">
+          <option value="admin">Admin</option>
+          <option value="superadmin">Super Admin</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap">
+        <button class="primary" id="btnSave" disabled>Simpan Perubahan</button>
+        <button class="ghost" id="btnCancel" hidden>Batal</button>
+      </div>
+    </div>
+    <div class="msg" id="eMsg"></div>
+  </div>
+
+</main>
+
+<nav class="bottom-nav">
+  <a class="nav-item" href="dashboard.html" title="Dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></a>
+  
+</nav>
+
+<script src="/accounts.js?v=20261006"></script>
+<script src="/account.js?v=20261006"></script>
+</body>
+</html>

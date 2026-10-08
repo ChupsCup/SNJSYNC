@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Login - SNJ SYNC</title>
+<script>document.documentElement.setAttribute('data-theme', localStorage.getItem('ctf-theme') || 'dark');</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#09090b;--card:#18181b;--border:#27272a;--text:#fafafa;--text2:#a1a1aa;
+  --accent:#f97316;--green:#22c55e;--red:#ef4444;--r:16px;
+}
+html[data-theme="light"]{--bg:#fafafa;--card:#fff;--border:#e4e4e7;--text:#18181b;--text2:#71717a;--accent:#ea580c}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-size:14px;color:var(--text);background:var(--bg);
+  -webkit-font-smoothing:antialiased;
+  display:grid;place-items:center;padding:20px;
+}
+
+body::before{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;background:url('/bg-dashboard.jpeg') center/cover no-repeat}
+body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.78))}
+html[data-theme="light"] body::after{background:linear-gradient(180deg,rgba(255,252,240,.72),rgba(255,252,240,.88))}
+
+.box{
+  position:relative;width:100%;max-width:400px;background:var(--card);
+  border:1px solid var(--border);border-radius:var(--r);
+  padding:26px;box-shadow:0 18px 50px rgba(0,0,0,.45);
+}
+.brand{display:flex;align-items:center;gap:11px;margin-bottom:6px}
+.logo{
+  width:40px;height:40px;border-radius:11px;background:var(--accent);
+  display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;flex-shrink:0;
+}
+.brand-text h1{font-family:'Space Grotesk',system-ui,sans-serif;font-size:17px;font-weight:700;letter-spacing:-.02em}
+.brand-text p{font-size:12px;color:var(--text2);margin-top:1px}
+h2{font-size:13px;font-weight:600;margin:20px 0 12px}
+label{display:block;font-size:11.5px;color:var(--text2);font-weight:600;margin-bottom:5px}
+input[type=text],input[type=password]{
+  width:100%;padding:12px 13px;font-size:13px;background:var(--bg);
+  border:1px solid var(--border);border-radius:10px;color:var(--text);
+  outline:none;transition:border-color .15s,box-shadow .15s;
+}
+html[data-theme="light"] input[type=text],html[data-theme="light"] input[type=password]{background:#fafafa}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.field{margin-bottom:13px}
+.pw{position:relative;display:flex;align-items:center}
+.pw input{width:100%;padding:12px 44px 12px 13px}
+.pw .pw-eye{
+  position:absolute;top:0;right:0;bottom:0;width:44px;
+  display:grid;place-items:center;
+  margin:0;padding:0;
+  background:none;border:none;border-radius:0 8px 8px 0;cursor:pointer;
+  color:var(--text2);opacity:1;transition:color .15s,background-color .15s;
+}
+.pw .pw-eye:hover{color:var(--text);background:rgba(255,255,255,.06)}
+.pw .pw-eye:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.pw .pw-eye svg{display:block;stroke:currentColor;width:20px;height:20px}
+.pw input:-webkit-autofill ~ .pw-eye,
+.pw input:autofill ~ .pw-eye{color:#5a5a5a}
+.pw input:-webkit-autofill ~ .pw-eye:hover,
+.pw input:autofill ~ .pw-eye:hover{color:#18181b}
+button:not(.pw-eye){
+  width:100%;margin-top:8px;padding:11px 18px;border:none;border-radius:10px;
+  background:var(--accent);color:#fff;font-size:13px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:opacity .15s,background-color .15s;
+}
+button:hover:not(:disabled){opacity:.9}
+button:disabled{opacity:.55;cursor:wait}
+#msg{
+  margin-top:12px;font-size:12px;min-height:17px;color:var(--text2);
+  padding:9px 12px;border-radius:9px;display:none;
+}
+#msg.err{display:block;color:var(--red);border:1px solid color-mix(in srgb,var(--red) 40%,transparent);background:color-mix(in srgb,var(--red) 10%,transparent)}
+.hint{margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text2);line-height:1.6}
+.hint a{color:var(--accent);text-decoration:none;font-weight:600}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="brand">
+    <div class="logo">SNJ</div>
+    <div class="brand-text">
+      <h1>SNJ SYNC</h1>
+      <p>Master Data System</p>
+    </div>
+  </div>
+
+  <h2>Masuk sebagai Admin</h2>
+  <form id="f" autocomplete="on">
+    <div class="field">
+      <label for="u">Username</label>
+      <input type="text" id="u" name="username" autocomplete="username" required autofocus>
+    </div>
+    <div class="field">
+      <label for="p">Password</label>
+      <div class="pw">
+        <input type="password" id="p" name="password" autocomplete="current-password" required>
+        <button type="button" class="pw-eye" id="pEye" aria-label="Tampilkan password" title="Tampilkan password">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <button type="submit" id="btn">Masuk</button>
+  </form>
+
+  <div id="msg"></div>
+
+<div class="hint">
+    <a href="/">&larr; Kembali ke tampilan user</a>
+  </div>
+</div>
+
+<script>
+const form = document.getElementById('f');
+const btn = document.getElementById('btn');
+const msg = document.getElementById('msg');
+
+function show(text, isErr) {
+  msg.textContent = text;
+  msg.className = isErr ? 'err' : '';
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  btn.disabled = true;
+  btn.textContent = 'Memproses...';
+  msg.className = '';
+  msg.textContent = '';
+  try {
+    const body = new URLSearchParams();
+    body.set('username', document.getElementById('u').value.trim());
+    body.set('password', document.getElementById('p').value);
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      show(d.error || 'Login gagal.', true);
+      btn.disabled = false;
+      btn.textContent = 'Masuk';
+      return;
+    }
+    btn.textContent = 'Berhasil, mengarahkan...';
+    location.href = '/dashboard';
+  } catch (err) {
+    show('Gagal menghubungi server.', true);
+    btn.disabled = false;
+    btn.textContent = 'Masuk';
+  }
+});
+
+
+const pInput = document.getElementById('p');
+const pEye = document.getElementById('pEye');
+const EYE_OPEN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+const EYE_CLOSED = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 9.9a3 3 0 0 1 4.24-4.24M1 1l22 22"></path><path d="M1 12s4-8 11-8a9.8 9.8 0 0 1 5 1.4M23 12s-1.8 3.6-5.06 5.94"></path></svg>';
+pEye.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  const show = pInput.type === 'password';
+  pInput.type = show ? 'text' : 'password';
+  pEye.innerHTML = show ? EYE_CLOSED : EYE_OPEN;
+  const label = show ? 'Sembunyikan password' : 'Tampilkan password';
+  pEye.setAttribute('aria-label', label);
+  pEye.title = label;
+  pInput.focus({ preventScroll: true });
+});
+
+
+fetch('/api/auth/me').then(r => r.json()).then(d => {
+  if (d && d.loggedIn) location.href = '/dashboard';
+}).catch(() => {});
+</script>
+</body>
+</html>

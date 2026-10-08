@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Master Model Data — SNJ SYNC</title>
+<script>document.documentElement.setAttribute('data-theme', localStorage.getItem('ctf-theme') || 'dark');</script>
+<style>@view-transition{navigation:auto}
+@media (prefers-reduced-motion:no-preference){
+::view-transition-old(root){animation:none;opacity:1}
+::view-transition-new(root){animation:snjIn 170ms ease both}
+}
+@keyframes snjIn{from{opacity:0}}</style>
+<style>
+:root{--bg:#09090b;--card:#18181b;--border:#27272a;--text:#fafafa;--text2:#a1a1aa;--accent:#f97316;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--radius:14px}
+
+html[data-theme="light"]{--bg:#fafafa;--card:#fff;--border:#e4e4e7;--text:#18181b;--text2:#71717a;--accent:#ea580c}
+
+*{box-sizing:border-box;margin:0}
+
+body{font-family:Inter,'Segoe UI',system-ui,-apple-system,sans-serif;font-size:14px;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;padding-bottom:80px}
+
+body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.72))}
+html[data-theme="light"] body::before{background:linear-gradient(180deg,rgba(255,252,240,.60),rgba(255,252,240,.82))}
+body::after{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;background:url('/bg-dashboard.jpeg') center/cover no-repeat}
+
+
+.topbar{position:sticky;top:clamp(8px,1.2vw,14px);z-index:40;
+  margin:clamp(8px,1.2vw,14px) clamp(14px,1.1vw,20px) 0;
+  display:flex;align-items:center;border-radius:14px;
+  background:color-mix(in srgb, var(--bg) 94%, transparent);
+  border:1px solid var(--border);box-shadow:0 8px 28px rgba(0,0,0,.38)}
+
+.topbar .inner{width:100%;display:flex;align-items:center;padding:10px 16px}
+
+.brand{display:flex;align-items:center;gap:10px}
+
+.logo{width:36px;height:36px;border-radius:10px;background:var(--accent);display:grid;place-items:center;font-weight:800;color:#fff;font-size:12px;flex-shrink:0}
+
+.brand-text h1{font-size:15px;font-weight:700;letter-spacing:-.3px}
+
+.brand-text .sub{color:var(--text2);font-size:11.5px;margin-top:1px}
+
+main{width:100%;margin:0 auto;padding:16px 20px}
+
+.sec{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+
+.sec-head{font-weight:700;font-size:13px;margin-bottom:10px;color:var(--text)}
+
+.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:26px 20px;text-align:center;cursor:pointer;transition:background-color .15s,color .15s,border-color .15s;color:var(--text2);font-size:12.5px}
+
+.upload-zone:hover{border-color:var(--accent);background:color-mix(in srgb, var(--accent) 5%, transparent)}
+
+.upload-zone.dragover{border-color:var(--accent);background:color-mix(in srgb, var(--accent) 8%, transparent);color:var(--accent)}
+
+.upload-zone .fname{color:var(--accent);font-weight:600;margin-top:6px;word-break:break-all}
+
+.hint{font-size:11px;color:var(--text2);margin-top:6px}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+
+.field label{display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:5px}
+
+.field input{width:100%;padding:8px 12px;font-size:12.5px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);outline:none;transition:border-color .15s}
+
+.field input:focus{border-color:var(--accent)}
+
+.checks{display:flex;gap:18px;margin-top:12px;flex-wrap:wrap;font-size:12px;color:var(--text)}
+
+.checks label{display:flex;align-items:center;gap:6px;cursor:pointer}
+
+.checks input{width:15px;height:15px;accent-color:var(--accent)}
+
+button.primary{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 20px;font-weight:600;font-size:12.5px;cursor:pointer;transition:opacity .15s}
+
+button.primary:hover{opacity:.9}
+
+button.primary:disabled{opacity:.5;cursor:wait}
+
+button.ghost{background:transparent;color:var(--accent);border:1px solid color-mix(in srgb, var(--accent) 40%, transparent);padding:7px 14px;border-radius:10px;font-weight:600;font-size:11.5px;cursor:pointer;transition:background .15s}
+
+button.ghost:hover{background:color-mix(in srgb, var(--accent) 10%, transparent)}
+
+button.ghost:disabled{opacity:.4;cursor:default;pointer-events:none}
+
+.prog{margin-top:12px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+
+.prog-bar{background:var(--border);border-radius:6px;height:6px;overflow:hidden;margin-top:6px}
+
+.prog-fill{height:100%;width:0%;background:var(--accent);border-radius:6px;transition:width .3s}
+
+.prog-fill.ok{background:var(--green)}
+
+.prog-msg{font-size:11px;color:var(--text2);margin-top:6px}
+
+#status{margin-top:10px;font-size:12px;color:var(--text2);min-height:18px}
+
+#status.ok{color:var(--green)}#status.error{color:var(--red)}
+
+.summary{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
+
+.sum-item{flex:1;min-width:130px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+
+.sum-item .v{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--accent)}
+
+.sum-item .l{font-size:10.5px;color:var(--text2);margin-top:2px;font-weight:600;letter-spacing:.02em}
+
+
+.rcard{margin-top:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 6px 22px rgba(0,0,0,.22)}
+
+html[data-theme="light"] .rcard{box-shadow:0 4px 16px rgba(0,0,0,.06)}
+
+.rc-head{display:flex;align-items:center;gap:11px;padding:11px 14px;border-bottom:1px solid var(--border);background:color-mix(in srgb, var(--bg) 45%, var(--card))}
+
+.rc-ico{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;flex-shrink:0;background:color-mix(in srgb, var(--red) 15%, transparent);color:var(--red)}
+
+.rc-ico svg{width:15px;height:15px}
+
+.rc-ttl{font-size:12.5px;font-weight:700;line-height:1.25}
+
+.rc-sub{font-size:11px;color:var(--text2);margin-top:2px}
+
+.rc-act{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+
+.rc-count{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:var(--red);background:color-mix(in srgb, var(--red) 13%, transparent);border:1px solid color-mix(in srgb, var(--red) 28%, transparent);padding:3px 9px;border-radius:999px}
+
+.rc-body{display:none}
+
+.rc-body.open{display:block}
+
+.rc-reasons{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg)}
+
+.rchip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--text2);background:var(--card);border:1px solid var(--border);padding:3px 9px;border-radius:999px}
+
+.rchip b{color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px}
+
+.rc-scroll{max-height:288px;overflow:auto;background:var(--bg)}
+
+.rc-table{width:100%;border-collapse:collapse;font-size:11.5px}
+
+.rc-table th{position:sticky;top:0;z-index:1;background:var(--bg);text-align:left;padding:8px 12px;font-size:10.5px;font-weight:700;letter-spacing:.03em;color:var(--text2);border-bottom:1px solid var(--border);white-space:nowrap}
+
+.rc-table td{padding:7px 12px;border-bottom:1px solid color-mix(in srgb, var(--border) 60%, transparent);vertical-align:top}
+
+.rc-table tr:last-child td{border-bottom:none}
+
+.rc-table tbody tr:hover td{background:color-mix(in srgb, var(--accent) 5%, transparent)}
+
+.rc-code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2);white-space:nowrap}
+
+.rc-desc{line-height:1.35}
+
+.rc-alasan{font-size:10.5px;color:var(--text2);line-height:1.35}
+
+.rc-more{padding:9px 14px;text-align:center;font-size:11px;font-weight:600;color:var(--text2);border-top:1px solid var(--border);background:var(--card);cursor:pointer}
+
+.rc-more:hover{color:var(--accent)}
+
+.rc-empty{padding:16px 12px;text-align:center;font-size:11.5px;color:var(--text2)}
+
+
+.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
+
+.actions button{height:38px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:10px;white-space:nowrap}
+
+.actions button svg{width:14px;height:14px;flex-shrink:0}
+
+.actions button.primary{padding:0 18px;font-size:12.5px}
+
+.actions button.ghost{padding:0 15px;font-size:12px}
+
+button.ghost.green{color:var(--green);border-color:color-mix(in srgb, var(--green) 45%, transparent)}
+
+button.ghost.green:hover{background:color-mix(in srgb, var(--green) 12%, transparent)}
+
+button.soft{background:var(--card);border:1px solid var(--border);color:var(--text2);padding:0 15px;font-size:12px;font-weight:600}
+
+button.soft:hover{color:var(--text);border-color:color-mix(in srgb, var(--accent) 45%, transparent)}
+
+button.soft:disabled{opacity:.4;cursor:default;pointer-events:none}
+
+
+.bottom-nav{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:100;display:flex;align-items:center;gap:4px;padding:5px;border-radius:999px;border:1px solid var(--border);background:color-mix(in srgb, var(--bg) 94%, transparent);box-shadow:0 4px 24px rgba(0,0,0,.3)}
+
+html[data-theme="light"] .bottom-nav{box-shadow:0 4px 24px rgba(0,0,0,.08)}
+
+.nav-item{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;color:var(--text2);text-decoration:none;transition:background-color .15s,color .15s,border-color .15s}
+
+.nav-item:hover{color:var(--text)}
+
+.nav-item.active{background:color-mix(in srgb, var(--accent) 15%, transparent);color:var(--accent)}
+
+.nav-item svg{width:18px;height:18px}
+
+#toast{position:fixed;left:50%;bottom:48px;z-index:80;transform:translateX(-50%) translateY(16px);background:var(--card);border:1px solid var(--border);color:var(--text);padding:10px 18px;border-radius:10px;font-weight:600;font-size:12.5px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none}
+
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+#toast.ok{border-color:var(--green);color:var(--green)}
+
+#toast.fail{border-color:var(--red);color:var(--red)}
+
+@media(max-width:640px){
+  .topbar .inner{padding:8px 12px}.brand-text h1{font-size:13.5px}.brand-text .sub{display:none}
+
+  main{padding:12px 14px}.sec{padding:12px;border-radius:12px}
+
+  .grid2{grid-template-columns:1fr}
+
+  .bottom-nav{bottom:10px;gap:0;padding:4px 6px}
+
+  .nav-item{width:36px;height:36px}.nav-item svg{width:16px;height:16px}
+
+  .rc-head{flex-wrap:wrap}.rc-act{margin-left:0;width:100%}
+
+  .rc-scroll{max-height:210px}.rc-table td,.rc-table th{padding:6px 9px}
+
+}
+
+
+</style>
+</head>
+<body>
+<header class="topbar"><div class="inner"><div class="brand">
+  <div class="logo">SNJ</div>
+  <div class="brand-text"><h1>Master Model Data</h1><p class="sub">Bersihkan Master List &mdash; kolom tersebar jadi satu, buang baris/kolom kosong.</p></div>
+</div></div></header>
+
+<main>
+  <div class="sec">
+    <div class="sec-head">Upload File Excel</div>
+    <div class="upload-zone" id="dropZone">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+      <div style="margin-top:8px">Klik atau seret file Excel ke sini <b>(.xlsx, .xls, .csv)</b></div>
+      <div class="fname" id="fname"></div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none">
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>Grup kolom No. Barang (disatukan)</label>
+        <input type="text" id="codeCols" value="A-C" placeholder="misal A-C">
+      </div>
+      <div class="field">
+        <label>Grup kolom Deskripsi (disatukan)</label>
+        <input type="text" id="descCols" value="E-G" placeholder="misal E-G">
+      </div>
+    </div>
+  <div class="checks">
+      <label><input type="checkbox" id="rmBlank" checked> Hapus baris kosong</label>
+      <label><input type="checkbox" id="rmEmpty" checked> Hapus kolom kosong</label>
+      <label><input type="checkbox" id="keepSnj" style="accent-color:var(--green)" checked> Keep otomatis baris ber tanda <b>---</b> (kode kepemilikan SNJ)</label>
+    </div>
+  </div>
+
+  <div class="sec" id="pedSec" style="display:none">
+    <div class="sec-head">Pedoman SNJ (whitelist 3 grosir)</div>
+    <div class="upload-zone" id="pedZone">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+      <div style="margin-top:8px">Upload file pedoman 3 grosir <b>(.xlsx)</b> &mdash; kolom <b>Kode Barang, Nama Barang, Merek Barang, Non Aktif</b></div>
+      <div class="fname" id="pedFname"></div>
+      <input type="file" id="pedInput" accept=".xlsx,.xls" style="display:none">
+    </div>
+    <div id="pedList"></div>
+    <div style="margin-top:10px">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text)">
+        <input type="checkbox" id="filterByPedoman" style="width:15px;height:15px;accent-color:var(--accent)"> Filter output sesuai pedoman (hapus baris di luar list)
+      </label>
+    </div>
+  </div>
+
+  <div id="outWrap" style="margin-top:12px;display:none">
+    <div class="rcard">
+      <div class="rc-head">
+        <div class="rc-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16.5v.01"/></svg>
+        </div>
+        <div style="min-width:0">
+          <div class="rc-ttl">Item tidak masuk file hasil</div>
+          <div class="rc-sub" id="outSummary"></div>
+        </div>
+        <div class="rc-act">
+          <span class="rc-count" id="outCount">0</span>
+          <button class="ghost" id="outToggle">Lihat detail</button>
+        </div>
+      </div>
+      <div class="rc-reasons" id="outReasons" style="display:none"></div>
+      <div class="rc-body" id="outBodyWrap">
+        <div class="rc-scroll">
+          <table class="rc-table">
+            <thead>
+              <tr><th>KODE BARANG</th><th>DESKRIPSI</th><th>ALASAN</th></tr>
+            </thead>
+            <tbody id="outBody"></tbody>
+          </table>
+        </div>
+        <div class="rc-more" id="outMore" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="primary" id="btnProcess" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h5l2 6 4-12 2 6h1"/></svg>
+      Proses Cleaning
+    </button>
+    <button class="ghost green" id="btnDownload" disabled title="Unduh file bersih ke laptop (bisa langsung forwarded)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M5 21h14"/></svg>
+      Download Hasil
+    </button>
+    <button class="ghost green" id="btnSaveMC" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h11l3 3v13H5z"/><path d="M9 4v5h6"/><path d="M9 20v-6h6v6"/></svg>
+      Simpan MMD
+    </button>
+    <button class="soft" id="btnReset" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/><path d="M14 11v6"/></svg>
+      Ganti File
+    </button>
+    <span id="saveMcNote" style="font-size:11px;color:var(--text2)"></span>
+  </div>
+    <div class="prog" id="prog" style="display:none">
+      <div style="font-size:12px;font-weight:600">Memproses: <span id="pct">0%</span></div>
+      <div class="prog-bar"><div class="prog-fill" id="bar"></div></div>
+      <div class="prog-msg" id="msg">Menyiapkan...</div>
+    </div>
+    <div id="status"></div>
+    <div class="summary" id="summary" style="display:none">
+      <div class="sum-item"><div class="v" id="sIn">0</div><div class="l">BARIS MASUK</div></div>
+      <div class="sum-item"><div class="v" id="sOut">0</div><div class="l">BARIS HASIL</div></div>
+      <div class="sum-item"><div class="v" id="sCols">0</div><div class="l">KOLOM HASIL</div></div>
+      <div class="sum-item"><div class="v" id="sSheets" style="font-size:13px">-</div><div class="l">SHEET</div></div>
+    </div>
+  </div>
+</main>
+
+<nav class="bottom-nav">
+  <a class="nav-item" href="dashboard.html" title="Dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></a>
+  <a class="nav-item" href="#" id="navSettings" title="Pengaturan / Pedoman"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6 1.65 1.65 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a>
+</nav>
+
+
+<div id="setModal" style="position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:1200;overflow:auto;padding:24px 14px">
+  <div style="max-width:720px;margin:0 auto;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:15px">Pengaturan Cleaning</div>
+      <button class="ghost" id="setClose" style="padding:4px 10px">Tutup</button>
+    </div>
+    <div class="hint" style="margin-bottom:4px">
+      Pedoman dipakai untuk memfilter baris SNJ saat cleaning. Berbeda dengan MMD &mdash;
+      MMD adalah Master Descriptor untuk halaman user, Pedoman hanya whitelist internal.
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let file = null;
+const zone = $('dropZone'), input = $('fileInput');
+zone.addEventListener('click', () => input.click());
+zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('dragover'); if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]); });
+input.addEventListener('change', (e) => { if (e.target.files[0]) setFile(e.target.files[0]); });
+
+function setFile(f) {
+  if (!/\.(xlsx|xls|csv)$/i.test(f.name)) { toast('Hanya file Excel (.xlsx/.xls/.csv)', 0); return; }
+
+file = f;
+  $('fname').textContent = f.name;
+  $('status').textContent = '';
+  $('summary').style.display = 'none';
+  $('btnProcess').disabled = false;
+  $('btnReset').disabled = false;
+  $('btnDownload').disabled = true;
+  refreshSaveBtn();
+}
+
+$('btnReset').addEventListener('click', () => {
+  file = null;
+  pedFile = null;
+  lastResult = null;
+  $('fname').textContent = '';
+  $('pedFname').textContent = '';
+  $('btnProcess').disabled = true;
+  $('btnReset').disabled = true;
+  $('btnDownload').disabled = true;
+  $('btnSaveMC').disabled = true;
+  $('saveMcNote').textContent = '';
+  $('status').textContent = '';
+  $('summary').style.display = 'none';
+  input.value = '';
+  pedInput.value = '';
+});
+
+
+
+let lastResult = null;
+
+function saveResult(blob, name) {
+  lastResult = { blob, name };
+  $('btnDownload').disabled = false;
+}
+
+function downloadResult() {
+  if (!lastResult) return;
+  const url = URL.createObjectURL(lastResult.blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = lastResult.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
+$('btnDownload').addEventListener('click', downloadResult);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function fileForSave() {
+  if (lastResult) return { blob: lastResult.blob, name: lastResult.name };
+  return null;
+}
+
+$('btnSaveMC').addEventListener('click', async () => {
+  const bersih = fileForSave();
+  if (!bersih) return;
+  const btn = $('btnSaveMC');
+  const note = $('saveMcNote');
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = 'Menyimpan...';
+  note.innerHTML = 'Menyimpan ' + bersih.name + ' ke database...';
+  try {
+    const fd = new FormData();
+    fd.append('bersih', bersih.blob, bersih.name);
+    
+    
+    
+    if (file) {
+      fd.append('mentah', file, file.name);
+    }
+    const res = await fetch('/api/mmd/save', { method: 'POST', body: fd });
+    const t = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(t.error || ('HTTP ' + res.status));
+    const baru = +t.baru || 0;
+    const upd = +t.diperbarui || 0;
+    const gagal = +t.duplikat || 0;
+    const revisi = +t.revisi || 0;
+    let pesan = 'Tersimpan: ' + baru.toLocaleString('id-ID') + ' baru';
+    if (upd) pesan += ', ' + upd.toLocaleString('id-ID') + ' diperbarui';
+    if (revisi) pesan += ', ' + revisi.toLocaleString('id-ID') + ' revisi deskripsi';
+    if (gagal) pesan += ', ' + gagal.toLocaleString('id-ID') + ' gagal';
+    pesan += '. Total: ' + (+t.total || 0).toLocaleString('id-ID') + ' item.';
+    note.innerHTML = '<span style="color:var(--green)">' + pesan + '</span>';
+    toast('MMD tersimpan: ' + baru + ' baru, ' + upd + ' diperbarui'
+      + (revisi ? ', ' + revisi + ' revisi' : ''), 1);
+  } catch (e) {
+    note.innerHTML = '<span style="color:var(--red)">Gagal: ' + e.message + '</span>';
+    toast('Gagal menyimpan MMD', 0);
+  } finally {
+    btn.textContent = old;
+    btn.disabled = false;
+  }
+});
+
+
+
+
+
+function refreshSaveBtn() {
+  const f = fileForSave();
+  $('btnSaveMC').disabled = f == null;
+  const note = $('saveMcNote');
+  if (f) {
+    note.textContent = 'Akan disimpan: ' + f.name;
+  } else {
+    note.textContent = 'Jalankan "Proses Cleaning" dulu sebelum menyimpan.';
+  }
+}
+
+$('btnProcess').addEventListener('click', () => {
+  if (!file) return;
+  const codeCols = $('codeCols').value.trim() || 'A-C';
+  const descCols = $('descCols').value.trim() || 'E-G';
+  const opts = { codeCols, descCols, removeBlankRows: $('rmBlank').checked, removeEmptyCols: $('rmEmpty').checked };
+  if ($('filterByPedoman').checked) opts.filterByPedoman = true;
+  if ($('keepSnj').checked) opts.keepSnj = true;
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('opts', JSON.stringify(opts));
+  process(fd);
+});
+
+function setProg(pct, msg, ok) {
+  $('prog').style.display = 'block';
+  $('pct').textContent = pct + '%';
+  $('bar').style.width = pct + '%';
+  $('bar').className = 'prog-fill' + (ok ? ' ok' : '');
+  $('msg').textContent = msg;
+}
+
+async function process(fd) {
+  $('btnProcess').disabled = true;
+  setProg(8, 'Upload & proses...');
+  try {
+    const res = await fetch('/api/clean/process', { method: 'POST', body: fd });
+    if (!res.ok) {
+      const t = await res.json().catch(() => ({}));
+      throw new Error(t.error || ('HTTP ' + res.status));
+    }
+
+setProg(60, 'Membuat file hasil...');
+    const blob = await res.blob();
+    const name = res.headers.get('X-Clean-Name') || 'output - bersih.xlsx';
+    saveResult(blob, name);
+    refreshSaveBtn();
+    setProg(100, 'Selesai! Klik "Download Hasil" untuk menyimpan file.', true);
+    const st = $('status');
+    st.className = 'ok';
+    const inR = res.headers.get('X-Clean-Rows-In'), outR = res.headers.get('X-Clean-Rows-Out'), cols = res.headers.get('X-Clean-Cols-Out'), sheets = res.headers.get('X-Clean-Sheets') || '-';
+    const outCount = +(res.headers.get('X-Clean-Out-Count') || 0);
+    st.textContent = 'Beres: ' + name;
+    $('sIn').textContent = (+inR || 0).toLocaleString('id-ID');
+    $('sOut').textContent = (+outR || 0).toLocaleString('id-ID');
+    $('sCols').textContent = +cols || 0;
+    $('sSheets').textContent = sheets;
+    $('summary').style.display = 'flex';
+    renderOutPanel(res.headers.get('X-Clean-Out-Id'), outCount);
+    const dIn = res.headers.get('X-Clean-Dash-In'), dOut = res.headers.get('X-Clean-Dash-Out');
+    let dashMsg = '';
+    if (dIn != null && dOut != null && +dIn === +dOut) dashMsg = ' | Baris SNJ (---): ' + (+dOut).toLocaleString('id-ID') + ' aman, semua masuk';
+    else if (dIn != null) dashMsg = ' | Baris SNJ (---): input ' + (+dIn).toLocaleString('id-ID') + ', output ' + (+dOut).toLocaleString('id-ID') + ' !!CEK!!';
+    else dashMsg = ' | Baris SNJ (---): cek manual!';
+    toast('Selesai diproses: ' + name + dashMsg, 1);
+    $('btnReset').disabled = false;
+  } catch (e) {
+    setProg(100, 'Gagal: ' + e.message, false);
+    hideOutPanel();
+    const st = $('status');
+    st.className = 'error';
+    st.textContent = 'Error: ' + e.message;
+    toast('Gagal memproses', 0);
+    $('btnProcess').disabled = false;
+  }
+
+}
+
+const pedZone = $('pedZone'), pedInput = $('pedInput');
+
+
+let pedFile = null;
+pedZone.addEventListener('click', (e) => { if (e.target.tagName !== 'A') pedInput.click(); });
+pedZone.addEventListener('dragover', (e) => { e.preventDefault(); pedZone.classList.add('dragover'); });
+pedZone.addEventListener('dragleave', () => pedZone.classList.remove('dragover'));
+pedZone.addEventListener('drop', (e) => { e.preventDefault(); pedZone.classList.remove('dragover'); if (e.dataTransfer.files[0]) uploadPedoman(e.dataTransfer.files[0]); });
+pedInput.addEventListener('change', (e) => { if (e.target.files[0]) uploadPedoman(e.target.files[0]); });
+
+async function uploadPedoman(f) {
+  if (!/\.(xlsx|xls)$/i.test(f.name)) { toast('Hanya file .xlsx/.xls', 0); return; }
+
+  pedFile = f;
+
+  const fd = new FormData();
+  fd.append('file', f);
+  $('pedFname').textContent = 'Memproses: ' + f.name + '...';
+  try {
+    const res = await fetch('/api/pedoman/upload', { method: 'POST', body: fd });
+    const t = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(t.error || ('HTTP ' + res.status));
+    $('pedFname').textContent = 'Beres: ' + f.name + ' (' + (+t.total || 0).toLocaleString('id-ID') + ' item)';
+    toast('Pedoman di-upload: ' + (+t.total || 0) + ' item', 1);
+    $('filterByPedoman').checked = true;
+    await loadPedoman();
+  } catch (e) {
+    $('pedFname').textContent = '';
+    toast('Gagal upload pedoman', 0);
+    alert('Error: ' + e.message);
+  }
+
+}
+
+
+function openSettings() {
+  const modal = $('setModal');
+  modal.style.display = 'block';
+  const sec = $('pedSec');
+  if (sec.parentElement !== modal.lastElementChild) {
+    modal.lastElementChild.appendChild(sec);
+    sec.style.display = 'block';
+    sec.style.marginTop = '14px';
+    sec.style.paddingTop = '14px';
+    sec.style.borderTop = '1px solid var(--border)';
+  }
+}
+function closeSettings() { $('setModal').style.display = 'none'; }
+$('navSettings').addEventListener('click', (e) => { e.preventDefault(); openSettings(); });
+$('setClose').addEventListener('click', closeSettings);
+$('setModal').addEventListener('click', (e) => { if (e.target === $('setModal')) closeSettings(); });
+
+async function loadPedoman() {
+  const list = $('pedList');
+  try {
+    const res = await fetch('/api/pedoman/list');
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { list.innerHTML = ''; return; }
+
+    const ups = d.uploads || [];
+    if (!ups.length) { list.innerHTML = '<div class="hint" style="margin-top:10px">Belum ada pedoman. Upload file 3 grosir di atas.</div>'; return; }
+
+    let h = '<div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">';
+    for (const u of ups) {
+      const chip = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px">
+        <div style="min-width:0"><div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(u.filename)}</div>
+        <div class="hint" style="margin:0">${(+u.total_rows||0).toLocaleString('id-ID')} item &middot; ${esc((u.uploaded_at||'').slice(0,10))}</div></div>
+        <button class="ghost" onclick="deletePedoman(${u.id})" style="flex-shrink:0;padding:4px 10px">Hapus</button></div>`;
+      h += chip;
+    }
+
+    h += '</div>';
+    list.innerHTML = h;
+  } catch (_) { list.innerHTML = ''; }
+
+}
+
+async function deletePedoman(id) {
+  if (!confirm('Hapus upload pedoman ini?')) return;
+  try {
+    const res = await fetch('/api/pedoman/delete/' + id, { method: 'POST' });
+    const t = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(t.error || ('HTTP ' + res.status));
+    toast('Pedoman dihapus', 1);
+    await loadPedoman();
+  } catch (e) { toast('Gagal hapus', 0); }
+
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+const OUT_PAGE = 150;
+let outRows = [];
+
+function hideOutPanel() {
+  const w = $('outWrap'); if (!w) return;
+  w.style.display = 'none';
+  outRows = [];
+  $('outBodyWrap').classList.remove('open');
+  $('outMore').style.display = 'none';
+  $('outToggle').textContent = 'Lihat detail';
+}
+
+function paintOutRows(limit) {
+  const rows = outRows.slice(0, limit);
+  $('outBody').innerHTML = rows.map((o) =>
+    '<tr><td class="rc-code">' + esc(o.code) + '</td>' +
+    '<td class="rc-desc">' + esc(o.desc) + '</td>' +
+    '<td class="rc-alasan">' + esc(o.alasan || '') + '</td></tr>').join('');
+
+  const more = $('outMore');
+  if (outRows.length > limit) {
+    more.style.display = 'block';
+    more.textContent = 'Tampilkan semua ' + outRows.length.toLocaleString('id-ID') + ' item';
+  } else {
+    more.style.display = 'none';
+  }
+}
+
+async function renderOutPanel(outId, outCount) {
+  const w = $('outWrap'); if (!w) return;
+  if (!outId || !outCount) { hideOutPanel(); return; }
+
+  outRows = [];
+  $('outCount').textContent = outCount.toLocaleString('id-ID');
+  $('outSummary').textContent = outCount.toLocaleString('id-ID') + ' item dibuang dari output dan tidak ikut di file hasil.';
+  $('outReasons').innerHTML = '';
+  $('outReasons').style.display = 'none';
+  $('outBody').innerHTML = '<tr><td colspan="3" class="rc-empty">Memuat...</td></tr>';
+  w.style.display = 'block';
+
+  const res = await fetch('/api/clean/out?id=' + encodeURIComponent(outId)).catch(() => null);
+  if (!res || !res.ok) { $('outBody').innerHTML = '<tr><td colspan="3" class="rc-empty">Detail tidak bisa dimuat.</td></tr>'; return; }
+
+  const d = await res.json().catch(() => null);
+  const list = (d && d.outList) || [];
+  if (!list.length) { $('outBody').innerHTML = '<tr><td colspan="3" class="rc-empty">Tidak ada item yang dibuang.</td></tr>'; return; }
+
+  outRows = list;
+  const tally = new Map();
+  for (const o of list) {
+    const k = (o.alasan || 'Tanpa alasan').trim() || 'Tanpa alasan';
+    tally.set(k, (tally.get(k) || 0) + 1);
+  }
+  $('outReasons').innerHTML = [...tally.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => '<span class="rchip"><b>' + n.toLocaleString('id-ID') + '</b> ' + esc(k) + '</span>')
+    .join('');
+  $('outReasons').style.display = 'flex';
+
+  paintOutRows(Math.min(OUT_PAGE, outRows.length));
+}
+
+$('outToggle').addEventListener('click', () => {
+  const b = $('outBodyWrap');
+  const open = b.classList.toggle('open');
+  $('outToggle').textContent = open ? 'Sembunyikan' : 'Lihat detail';
+  if (open && !outRows.length) {
+    $('outBody').innerHTML = '<tr><td colspan="3" class="rc-empty">Tidak ada detail.</td></tr>';
+  }
+});
+
+$('outMore').addEventListener('click', () => paintOutRows(outRows.length));
+
+function toast(msg, ok) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'show' + (ok ? ' ok' : ' fail');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => { t.className = ''; }, 2600);
+}
+
+(async () => {
+  const res = await fetch('/api/pedoman/list').catch(() => null);
+  const d = res && res.ok ? await res.json().catch(() => null) : null;
+  if (d && (d.uploads || []).length) { $('filterByPedoman').checked = true; }
+
+  else { $('filterByPedoman').checked = false; }
+
+  await loadPedoman();
+})();
+</script>
+<script src="/account.js?v=20261006"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+# Binary hasil build (dibuat lokal: go build -o snjsync.exe .)
+snjsync.exe
+snjsync.exe~
+snjsync_new.exe
+
+# Log runtime
+*.log
+*.err
+
+# Data runtime & cache OCR/Drive (ada token OAuth & file besar).
+# alias_map.json tetap ikut repo: itu konfigurasi alias pencarian, bukan data hasil scan.
+data/*
+!data/alias_map.json
+
+# Rahasia / kredensial — jangan pernah di-push
+client_secret.json
+config.json
+.env
+.env.*
+
+# File sementara editor / OS
+*.tmp
+*.bak
+*~
+.DS_Store
+Thumbs.db
