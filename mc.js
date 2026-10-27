@@ -9,6 +9,25 @@ let currentResultId = null;
 let currentResultApproved = false;
 let _reviewGroups = [];
 
+let plPmCtl = null;
+
+function pmBarBuild(progId, barId) {
+  const prog = document.getElementById(progId);
+  if (!prog) return null;
+  const barEl = document.getElementById(barId);
+  const wrap = barEl ? barEl.closest('.prog-bar') : null;
+  if (wrap) wrap.style.display = 'none';
+  const w = document.createElement('div');
+  w.style.cssText = 'width:100%;max-width:420px;margin:4px 0 2px';
+  if (wrap) wrap.parentNode.insertBefore(w, wrap);
+  else prog.appendChild(w);
+  return Pm.create(w, { height: 34 });
+}
+
+function plPmUpd(p) { if (!plPmCtl) plPmCtl = pmBarBuild('plProg', 'plBar'); if (plPmCtl) plPmCtl.set(p / 100); }
+function plPmDone() { if (plPmCtl) plPmCtl.done(); }
+function plPmRestart() { if (plPmCtl) plPmCtl.restart(); }
+
 
 const plDrop = $('plDropZone'), plInput = $('plFileInput');
 plDrop.addEventListener('click', () => plInput.click());
@@ -20,6 +39,7 @@ plInput.addEventListener('change', (e) => { if (e.target.files.length) uploadPL(
 async function uploadPL(files) {
   $('plProg').style.display = 'block';
   $('plInfo').style.display = 'none';
+  plPmRestart();
   let totalAll = 0;
   let sheetsAll = [];
 
@@ -30,6 +50,7 @@ async function uploadPL(files) {
 
     $('plPct').textContent = (fi + 1) + '/' + files.length;
     $('plBar').style.width = '0%'; $('plBar').classList.remove('ok');
+    plPmRestart(); plPmUpd(0);
     $('plMsg').textContent = 'Upload ' + (fi + 1) + '/' + files.length + ': ' + file.name;
 
     try {
@@ -42,6 +63,7 @@ async function uploadPL(files) {
             const p = Math.round(e.loaded / e.total * 100);
             $('plPct').textContent = (fi + 1) + '/' + files.length + ' — Upload ' + p + '%';
             $('plBar').style.width = p + '%';
+            plPmUpd(p * 0.6);
             $('plMsg').textContent = file.name + ': ' + fmtBytes(e.loaded) + ' / ' + fmtBytes(e.total);
           }
         };
@@ -58,6 +80,7 @@ async function uploadPL(files) {
       if (d.processing) {
         $('plPct').textContent = (fi + 1) + '/' + files.length + ' — Parsing...';
         $('plBar').style.width = '100%'; $('plBar').style.opacity = '.5';
+        plPmUpd(60);
         $('plMsg').textContent = file.name + ': Server sedang parse & simpan...';
         await pollPlStatus(d.uploadId, fi, files.length, file.name);
         $('plBar').style.opacity = '1';
@@ -72,6 +95,7 @@ async function uploadPL(files) {
   }
 
   $('plBar').style.width = '100%'; $('plBar').classList.add('ok');
+  plPmDone();
   $('plMsg').textContent = files.length + ' file selesai: ' + totalAll + ' baris total';
   $('plFileName').textContent = files.length + ' file';
   $('plInfo').style.display = 'block';
@@ -97,104 +121,11 @@ function pollPlStatus(uploadId, fi, total, filename) {
         else {
           $('plPct').textContent = fi + 1 + '/' + total + ' — Processing... (' + tries + 's)';
           $('plMsg').textContent = filename + ': Server parse & simpan ke DB...';
+          plPmUpd(Math.min(94, 60 + tries * 3));
         }
-      } catch (e) { /* retry */ }
+      } catch (e) {  }
     }, 1000);
   });
-}
-
-function pollMlStatus(uploadId, filename) {
-  return new Promise((resolve, reject) => {
-    let tries = 0;
-    const iv = setInterval(async () => {
-      tries++;
-      try {
-        const r = await fetch('/api/mc/ml-status/' + uploadId);
-        const d = await r.json();
-        if (d.status === 'done') { clearInterval(iv); resolve(d); }
-        else if (d.status && d.status.startsWith('error')) { clearInterval(iv); reject(new Error(d.status.replace('error: ', ''))); }
-        else { $('mlMsg').textContent = filename + ': Parsing & simpan... (' + tries + 's)'; }
-      } catch (e) { /* retry */ }
-    }, 1000);
-  });
-}
-
-/* === Upload Masterlist === */
-const mlDrop = $('mlDropZone'), mlInput = $('mlFileInput');
-mlDrop.addEventListener('click', () => mlInput.click());
-mlDrop.addEventListener('dragover', (e) => { e.preventDefault(); mlDrop.classList.add('dragover'); });
-mlDrop.addEventListener('dragleave', () => mlDrop.classList.remove('dragover'));
-mlDrop.addEventListener('drop', (e) => { e.preventDefault(); mlDrop.classList.remove('dragover'); if (e.dataTransfer.files[0]) uploadML(e.dataTransfer.files[0]); });
-mlInput.addEventListener('change', (e) => { if (e.target.files[0]) uploadML(e.target.files[0]); });
-
-function uploadML(file) {
-  const ext = file.name.split('.').pop().toLowerCase();
-  if (!['xlsx', 'xls', 'csv'].includes(ext)) { toast('File harus .xlsx/.xls/.csv', 'fail'); return; }
-  mlDrop.style.pointerEvents = 'none'; mlDrop.style.opacity = '.5';
-  $('mlProg').style.display = 'block';
-
-  const fd = new FormData(); fd.append('file', file);
-  const xhr = new XMLHttpRequest();
-  xhr.open('POST', '/api/mc/upload-ml');
-  xhr.upload.onprogress = (e) => {
-    if (e.lengthComputable) {
-      const p = Math.round(e.loaded / e.total * 100);
-      $('mlPct').textContent = p + '%'; $('mlBar').style.width = p + '%';
-      $('mlMsg').textContent = 'Upload: ' + fmtBytes(e.loaded) + ' / ' + fmtBytes(e.total);
-    }
-  };
-  xhr.onload = () => {
-    try {
-      const d = JSON.parse(xhr.responseText);
-      if (xhr.status !== 200 || !d.ok) throw new Error(d.error);
-      $('mlFileName').textContent = file.name;
-      $('mlBar').style.width = '100%'; $('mlBar').style.opacity = '.5';
-      $('mlMsg').textContent = file.name + ': Server sedang parse & simpan...';
-      if (d.processing && d.uploadIds && d.uploadIds.length) {
-        pollMlStatus(d.uploadIds[0], file.name).then(() => {
-          $('mlBar').style.opacity = '1'; $('mlBar').classList.add('ok');
-          $('mlMsg').textContent = file.name + ': selesai';
-          toast('Masterlist ter-upload', 'ok');
-          loadMasterlists();
-          setTimeout(() => { $('mlProg').style.display = 'none'; $('mlBar').classList.remove('ok'); }, 2000);
-        }).catch((e) => { toast('Gagal: ' + e.message, 'fail'); $('mlProg').style.display = 'none'; });
-      } else {
-        $('mlBar').style.opacity = '1'; $('mlBar').classList.add('ok');
-        $('mlMsg').textContent = 'Selesai: ' + (d.total || '') + ' baris';
-        toast('Masterlist ter-upload', 'ok');
-        loadMasterlists();
-        setTimeout(() => { $('mlProg').style.display = 'none'; $('mlBar').classList.remove('ok'); }, 2000);
-      }
-    } catch (e) { toast('Gagal: ' + e.message, 'fail'); $('mlProg').style.display = 'none'; }
-    mlDrop.style.pointerEvents = ''; mlDrop.style.opacity = '';
-    mlInput.value = '';
-  };
-  xhr.onerror = () => { toast('Network error', 'fail'); mlDrop.style.pointerEvents = ''; mlDrop.style.opacity = ''; $('mlProg').style.display = 'none'; };
-  xhr.send(fd);
-}
-
-/* === Load Masterlist List === */
-async function loadMasterlists() {
-  try {
-    const r = await fetch('/api/mc/masterlists');
-    const d = await r.json();
-    const list = $('mlList');
-    if (!d.uploads || !d.uploads.length) { list.innerHTML = '<div class="hint">Belum ada masterlist (referensi matching).</div>'; return; }
-    let html = '';
-    for (const u of d.uploads) {
-      const tag = u.status === 'done' ? 'DONE' : 'PROSES';
-      const cls = u.status === 'done' ? 'approved' : 'pending';
-      const src = /APPROVED|NEW ITEM|Master Data/.test(u.filename) || /APPROVED|NEW ITEM/.test(u.sheet_name) ? 'ref' : 'upload';
-      html += '<div class="ml-item" data-id="' + u.id + '">' +
-        '<span class="badge ' + cls + '">' + tag + '</span>' +
-        (src === 'ref' ? '<span class="ml-sheet" style="color:var(--accent)">MASTER DATA</span>' : '<span class="ml-sheet">' + esc(u.sheet_name) + '</span>') +
-        '<span class="ml-name">' + esc(u.filename) + '</span>' +
-        '<span class="ml-date">' + esc(u.uploaded_at) + '</span>' +
-        '<button class="danger" onclick="deleteML(' + u.id + ')">Hapus</button>' +
-        '</div>';
-    }
-    list.innerHTML = html;
-  } catch (e) { $('mlList').innerHTML = '<div class="hint">Gagal load: ' + e.message + '</div>'; }
 }
 
 
@@ -238,23 +169,23 @@ async function deletePL(id) {
 }
 window.deletePL = deletePL;
 
-async function deleteML(id) {
-  if (!confirm('Hapus masterlist ini?')) return;
-  await fetch('/api/mc/delete-ml', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uploadId: id }) });
-  toast('Masterlist dihapus', 'ok');
-  loadMasterlists();
-}
-
-
-$('btnCompare').addEventListener('click', async () => {
+$('btnCompare').addEventListener('click', () => runCompareNow());
+async function runCompareNow() {
   if (!plUploadIds.length && !currentPlUploadId) { toast('Upload packing list dulu!', 'fail'); return; }
   $('btnCompare').disabled = true; $('btnCompare').textContent = 'Compare...';
-  $('status').className = ''; $('status').textContent = 'Compare berjalan...';
+  $('status').className = '';
+  $('status').style.display = 'flex';
+$('status').style.alignItems = 'center';
+  $('status').style.gap = '9px';
+  $('status').style.flexWrap = 'wrap';
+  $('status').innerHTML = '<span id="cmpStatusText" style="flex:0 1 auto">Compare berjalan...</span><div id="cmpPmWrap" style="width:190px;height:38px;flex:0 0 auto;line-height:0"></div>';
+  if (cmpPmCtl) cmpPmCtl.destroy();
+  cmpPmCtl = Pm.create($('cmpPmWrap'), { height: 38, spin: true });
   let cmpSecs = 0;
   clearInterval(compareTimer);
   compareTimer = setInterval(() => {
     cmpSecs++;
-    $('status').textContent = 'Compare berjalan... (' + cmpSecs + ' dtk) — matching packing list vs masterlist';
+    $('cmpStatusText').textContent = 'Compare berjalan... (' + cmpSecs + ' dtk) — matching packing list vs masterlist';
   }, 1000);
   try {
     const r = await fetch('/api/mc/compare', {
@@ -270,60 +201,32 @@ $('btnCompare').addEventListener('click', async () => {
     renderTable();
     $('filterChips').style.display = 'flex';
     $('btnExport').disabled = false;
-    updateApproveButton(true);
+    $('status').style.display = '';
     $('status').className = 'ok';
     $('status').textContent = d.total + ' baris \u2014 ' + d.exist + ' EXISTING, ' + d.new + ' NEW ITEM' + (d.review ? ', ' + d.review + ' REVIEW' : '') + (d.skipped ? ' \u2014 ' + d.skipped + ' baris TOTAL di-skip' : '');
     toast('Compare: ' + d.exist + ' EXISTING, ' + d.new + ' NEW ITEM' + (d.review ? ', ' + d.review + ' REVIEW' : '') + (d.skipped ? ' (' + d.skipped + ' baris TOTAL di-skip)' : ''), 'ok');
-    setupReview();
     loadHistory();
   } catch (e) {
     toast('Gagal: ' + e.message, 'fail');
     $('status').className = 'error'; $('status').textContent = e.message;
-  } finally { clearInterval(compareTimer); $('btnCompare').disabled = false; $('btnCompare').textContent = 'Compare'; }
-});
-let compareTimer = null;
-
-function updateApproveButton(enabled) {
-  const b = $('btnApproveResult');
-  b.disabled = !enabled || currentResultApproved;
-  b.textContent = currentResultApproved ? '\u2714 ' + (b.dataset.label || 'Approved') : 'Approve & Simpan';
-  if (currentResultApproved) b.style.opacity = '.6'; else b.style.opacity = '';
-  $('approveStatus').style.display = 'none';
+  } finally { clearInterval(compareTimer); $('status').style.display = ''; if (cmpPmCtl) { cmpPmCtl.destroy(); cmpPmCtl = null; } $('btnCompare').disabled = false; $('btnCompare').textContent = 'Compare'; }
 }
-$('btnApproveResult').addEventListener('click', async () => {
-  if (!currentResultId) { toast('Compare dulu, lalu export, baru approve.', 'fail'); return; }
-  if (!confirm('Approve & Simpan hasil compare ini sebagai Master Data referensi (single source of truth)? Data EXISTING yang sudah punya Master Item Code akan disimpan sebagai referensi.')) return;
-  const b = $('btnApproveResult');
-  b.disabled = true; b.textContent = 'Menyimpan...';
-  try {
-    const r = await fetch('/api/mc/approve-result', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resultId: currentResultId })
-    });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error);
-    currentResultApproved = true;
-    updateApproveButton(true);
-    const st = $('approveStatus');
-    st.style.display = 'block';
-    st.textContent = d.already
-      ? '\u2714 Hasil #' + currentResultId + ' sudah di-approve sebelumnya.'
-      : '\u2714 Hasil di-approve & disimpan: ' + d.saved + ' item jadi Master Data referensi.';
-    toast('Approve & Simpan berhasil: ' + d.saved + ' item.', 'ok');
-    loadMasterlists();
-    loadHistory();
-  } catch (e) {
-    toast('Gagal approve: ' + e.message, 'fail');
-    b.disabled = false; b.textContent = 'Approve & Simpan';
-  }
-});
+let compareTimer = null;
+let cmpPmCtl = null;
+let expPmCtl = null;
 
 
 let tableVisible = 300;
 
 const TABLE_PAGE = 300;
 let searchQuery = '';
+function rowMatchesSearch(r, toks) {
+  const fields = [r.no, r.noContainer, r.brand, r.namaItem, r.itemCode, r.itemDesc,
+    r.importir, r.masterCode, r.masterDesc, r.note, r.flag];
+  return toks.every((t) => fields.some((f) => String(f || '').toLowerCase().includes(t)));
+}
 $('searchInput').addEventListener('input', (e) => {
-  searchQuery = e.target.value.trim().toLowerCase();
+  searchQuery = e.target.value.trim();
   tableVisible = TABLE_PAGE;
   renderTable();
 });
@@ -332,9 +235,11 @@ function rowHtml(r, count, g) {
   const isReview = !!r.needsReview;
   const c = isReview ? 'review' : (r.flag === 'NEW ITEM' ? 'new' : 'existing');
   const label = isReview ? 'REVIEW' : r.flag;
+  const gk = encodeURIComponent((r.brand || '') + '|' + (r.namaItem || ''));
+  const cntTxt = count > 1 ? ' (diterapkan ke ' + count + ' baris produk sama)' : '';
   const confirmBtn = isReview && !currentResultApproved
-    ? '<button class="confirm-btn" data-gconfirm="' + g + '" title="Setujui kandidat: ' + esc(r.candDesc || r.candCode || '') + '">\u2713 Cocok</button>'
-      + '<button class="confirm-btn" data-greject="' + g + '" style="color:var(--red);border-color:color-mix(in srgb, var(--red) 40%, transparent)" title="Tolak kandidat: barang ini memang baru">\u2715 Bukan</button>' : '';
+    ? '<button class="confirm-btn" data-gconfirm="' + gk + '" title="Setujui kandidat: ' + esc(r.candDesc || r.candCode || '') + cntTxt + '">\u2713 Cocok</button>'
+      + '<button class="confirm-btn" data-greject="' + gk + '" style="color:var(--red);border-color:color-mix(in srgb, var(--red) 40%, transparent)" title="Tolak kandidat: barang ini memang baru' + cntTxt + '">\u2715 Bukan</button>' : '';
   const gbadge = count > 1 ? ' <span class="gcount" title="' + count + ' baris dengan produk sama (beda no. container)">\u00d7' + count + '</span>' : '';
   return '<tr><td>' + r.no + '</td><td style="font-weight:600">' + esc(r.noContainer) + gbadge + '</td><td>' + esc(r.brand) + '</td><td>' + esc(r.namaItem) + '</td><td>' + esc(r.eta) + '</td><td>' + esc(r.importir || '') + '</td><td><span class="flag ' + c + '">' + label + '</span>' + confirmBtn + '</td><td>' + esc(r.masterCode) + '</td><td>' + esc(r.masterDesc) + '</td><td class="note-cell" title="' + esc(r.note || '') + '">' + esc(r.note || '') + '</td></tr>';
 }
@@ -342,18 +247,8 @@ function rowHtml(r, count, g) {
 function renderTable() {
   let base = compareResults;
   if (searchQuery) {
-    base = base.filter((r) =>
-      String(r.no || '').includes(searchQuery) ||
-      (r.noContainer || '').toLowerCase().includes(searchQuery) ||
-      (r.brand || '').toLowerCase().includes(searchQuery) ||
-      (r.namaItem || '').toLowerCase().includes(searchQuery) ||
-      (r.itemCode || '').toLowerCase().includes(searchQuery) ||
-      (r.itemDesc || '').toLowerCase().includes(searchQuery) ||
-      (r.importir || '').toLowerCase().includes(searchQuery) ||
-      (r.masterCode || '').toLowerCase().includes(searchQuery) ||
-      (r.masterDesc || '').toLowerCase().includes(searchQuery) ||
-      (r.note || '').toLowerCase().includes(searchQuery) ||
-      (r.flag || '').toLowerCase().includes(searchQuery));
+    const toks = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    base = base.filter((r) => rowMatchesSearch(r, toks));
   }
   const f = currentFilter === 'all' ? base :
     currentFilter === 'review' ? base.filter((r) => r.needsReview) :
@@ -443,7 +338,6 @@ async function reviewAction(mode, btn, key) {
     toast(mode === 'reject' ? applied + ' baris divalidasi sebagai item baru.' : applied + ' baris dikonfirmasi EXISTING.', 'ok');
     tableVisible = TABLE_PAGE;
     renderTable();
-    setupReview();
   } catch (err) {
     toast('Gagal: ' + err.message, 'fail');
     btn.disabled = false; btn.textContent = old;
@@ -451,9 +345,9 @@ async function reviewAction(mode, btn, key) {
 }
 $('tbody').addEventListener('click', (e) => {
   const btnC = e.target.closest('button[data-gconfirm]');
-  if (btnC) { reviewAction('confirm', btnC, _reviewGroups[parseInt(btnC.getAttribute('data-gconfirm'), 10)]); return; }
+  if (btnC) { reviewAction('confirm', btnC, decodeURIComponent(btnC.getAttribute('data-gconfirm'))); return; }
   const btnR = e.target.closest('button[data-greject]');
-  if (btnR) { reviewAction('reject', btnR, _reviewGroups[parseInt(btnR.getAttribute('data-greject'), 10)]); return; }
+  if (btnR) { reviewAction('reject', btnR, decodeURIComponent(btnR.getAttribute('data-greject'))); return; }
 });
 
 
@@ -467,33 +361,11 @@ $('filterChips').addEventListener('click', (e) => {
 });
 
 
-const MC_MONTHS = ['', 'januari', 'februari', 'maret', 'april', 'mei', 'juni', 'juli', 'agustus', 'september', 'oktober', 'november', 'desember'];
-const MC_MONTH_KEY = { jan: 1, feb: 2, mar: 3, apr: 4, mei: 5, jun: 6, jul: 7, agu: 8, sep: 9, okt: 10, nov: 11, des: 12 };
-function mcDateFromFilename(fn) {
-  const s = String(fn || '').replace(/\.(xlsx?|csv)$/i, '');
-  const m = s.match(/(\d{1,2})\s*(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|mei|jun(?:e)?|jul(?:y)?|agu(?:stus)?|sep(?:tember)?|okt(?:ober)?|nov(?:ember)?|des(?:ember)?)/i);
-  if (m) {
-    const day = parseInt(m[1], 10);
-    const mo = MC_MONTH_KEY[m[2].toLowerCase().slice(0, 3)];
-    if (day >= 1 && day <= 31 && mo) return day + ' ' + MC_MONTHS[mo];
-  }
-  const n = s.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
-  if (n) {
-    const day = parseInt(n[1], 10), mo = parseInt(n[2], 10);
-    if (day >= 1 && day <= 31 && mo >= 1 && mo <= 12) return day + ' ' + MC_MONTHS[mo];
-  }
-  return '';
-}
 async function mcOutputName() {
   try {
-    const r = await fetch('/api/mc/masterlists', { cache: 'no-store' });
+    const r = await fetch('/api/user/mmd-meta', { cache: 'no-store' });
     const d = await r.json();
-    if (d.uploads && d.uploads.length) {
-      for (const u of d.uploads) {
-        const label = mcDateFromFilename(u.filename);
-        if (label) return 'Output Hasil MC ' + label + '.xlsx';
-      }
-    }
+    if (d && d.cutoff) return 'Output Hasil MC ' + d.cutoff + '.xlsx';
   } catch (_) {}
   return 'Output Hasil MC.xlsx';
 }
@@ -501,6 +373,11 @@ $('btnExport').addEventListener('click', async () => {
   if (!compareResults.length) { toast('Compare dulu!', 'fail'); return; }
   const b = $('btnExport');
   b.disabled = true; b.textContent = 'Export...';
+  const as = $('actionStatus');
+  as.style.display = 'flex'; as.style.alignItems = 'center'; as.style.gap = '9px'; as.style.flexWrap = 'wrap';
+  as.innerHTML = '<span style="flex:0 1 auto">Membuat file Excel export...</span><div id="exPmWrap" style="width:190px;height:38px;flex:0 0 auto;line-height:0"></div>';
+  if (expPmCtl) expPmCtl.destroy();
+  expPmCtl = Pm.create($('exPmWrap'), { height: 38, spin: true });
   try {
     const body = currentResultId ? { resultId: currentResultId } : { results: compareResults };
     const r = await fetch('/api/mc/export', {
@@ -516,93 +393,10 @@ $('btnExport').addEventListener('click', async () => {
   } catch (e) {
     toast('Gagal export: ' + e.message, 'fail');
   } finally {
+    if (expPmCtl) { expPmCtl.destroy(); expPmCtl = null; }
+    as.style.display = 'none'; as.innerHTML = '';
     b.disabled = false; b.textContent = 'Export';
   }
-});
-
-
-let newItems = [];
-let newVisible = 200;
-
-const NEW_PAGE = 300;
-function setupReview() {
-  const uniq = new Map();
-  for (const r of compareResults) {
-    if (r.flag !== 'NEW ITEM' || r.needsReview) continue; 
-    const key = (r.brand + '|' + r.namaItem).toLowerCase();
-    if (!uniq.has(key)) uniq.set(key, r);
-  }
-  newItems = Array.from(uniq.values());
-  newVisible = NEW_PAGE;
-  $('reviewSec').style.display = newItems.length ? 'block' : 'none';
-  if (newItems.length) renderNewItems();
-}
-function renderNewItems() {
-  const tb = $('tbodyNew');
-  const shown = newItems.slice(0, newVisible);
-  let h = '';
-  for (let i = 0; i < shown.length; i++) {
-    const it = shown[i];
-    h += '<tr data-idx="' + i + '">' +
-      '<td><input type="checkbox"' + (it._sel === false ? '' : ' checked') + ' onchange="updateNewSelection()"></td>' +
-      '<td style="white-space:nowrap">' + esc(it.brand) + '</td>' +
-      '<td>' + esc(it.namaItem) + '</td>' +
-      '<td>' + esc(it.eta) + '</td>' +
-      '<td><input type="text" class="new-code" value="' + esc(it._code !== undefined ? it._code : (it.masterCode === '-' ? (it.candCode || '') : it.masterCode)) + '" placeholder="Kode item baru" oninput="updateNewSelection()"></td>' +
-      '<td><input type="text" class="new-desc" value="' + esc(it._desc !== undefined ? it._desc : (it.masterDesc === '-' ? (it.candDesc || it.namaItem) : it.masterDesc)) + '" placeholder="Deskripsi standar" oninput="updateNewSelection()"></td>' +
-      '</tr>';
-  }
-  tb.innerHTML = h;
-  const hasMore = newItems.length > newVisible;
-  $('newLoadMore').style.display = hasMore ? 'block' : 'none';
-  if (hasMore) $('btnNewMore').textContent = 'Muat ' + Math.min(NEW_PAGE, newItems.length - newVisible) + ' lagi (' + shown.length + '/' + newItems.length + ' ditampilkan)';
-  updateNewSelection();
-}
-$('btnNewMore').addEventListener('click', () => { newVisible += NEW_PAGE; renderNewItems(); });
-function updateNewSelection() {
-  const rows = $('tbodyNew').querySelectorAll('tr[data-idx]');
-  rows.forEach((tr) => {
-    const idx = parseInt(tr.dataset.idx);
-    const box = tr.querySelector('input[type=checkbox]');
-    const code = tr.querySelector('.new-code').value.trim();
-    const desc = tr.querySelector('.new-desc').value.trim();
-    Object.assign(newItems[idx], { _sel: box.checked, _code: code, _desc: desc });
-  });
-  const selected = newItems.filter((it) => it._sel).length;
-  $('reviewCount').textContent = selected + ' / ' + newItems.length + ' item dipilih';
-  $('btnSaveMasterItems').disabled = selected === 0;
-}
-$('btnSelectAllNew').addEventListener('click', () => { newItems.forEach((it) => it._sel = true); $('tbodyNew').querySelectorAll('input[type=checkbox]').forEach((b) => b.checked = true); updateNewSelection(); });
-$('btnUnselectAllNew').addEventListener('click', () => { newItems.forEach((it) => it._sel = false); $('tbodyNew').querySelectorAll('input[type=checkbox]').forEach((b) => b.checked = false); updateNewSelection(); });
-$('btnSaveMasterItems').addEventListener('click', async () => {
-  const toSave = newItems.filter((it) => it._sel);
-  if (!toSave.length) { toast('Pilih minimal 1 item.', 'fail'); return; }
-  const payload = toSave.map((it) => ({
-    brand: it.brand,
-    namaItem: it.namaItem,
-    itemCode: it._code || '',
-    itemDesc: it._desc || it.namaItem
-  }));
-  $('btnSaveMasterItems').disabled = true;
-  $('reviewStatus').textContent = 'Menyimpan...';
-  try {
-    const r = await fetch('/api/mc/save-master-items', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: payload })
-    });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error);
-    const savedKeys = new Set(toSave.map((it) => (it.brand + '|' + it.namaItem).toLowerCase()));
-    $('reviewStatus').textContent = d.saved + ' item disimpan ke Masterlist.';
-    toast(d.saved + ' item berhasil jadi Master Data (EXISTING untuk compare berikutnya)', 'ok');
-    for (const r of compareResults) {
-      if (r.flag === 'NEW ITEM' && savedKeys.has((r.brand + '|' + r.namaItem).toLowerCase())) { r.flag = 'EXISTING'; }
-    }
-    tableVisible = TABLE_PAGE;
-    renderTable();
-    loadMasterlists();
-    setTimeout(() => { $('reviewStatus').textContent = ''; }, 3500);
-  } catch (e) { toast('Gagal simpan: ' + e.message, 'fail'); $('reviewStatus').textContent = 'Gagal: ' + e.message; }
-  finally { setupReview(); $('btnSaveMasterItems').disabled = false; }
 });
 
 
@@ -626,9 +420,6 @@ async function loadHistory(attempt = 1, quiet = false) {
           '<span class="ml-date">' + esc(r.created_at) + '</span>' +
           '<span class="ml-sheet">' + r.total + ' baris (' + r.exist_count + ' E / ' + r.new_count + ' N' + (r.review_count ? ' / ' + r.review_count + ' R' : '') + ')</span>' +
           '<button class="ghost" data-act="lihat" data-id="' + r.id + '">Lihat</button>' +
-          (r.approved
-            ? ''
-            : '<button class="primary" style="font-size:11px;padding:6px 12px" data-act="approve" data-id="' + r.id + '">Approve &amp; Simpan</button>') +
           '<button class="ghost danger" data-act="hapus" data-id="' + r.id + '" data-approved="' + (r.approved ? 1 : 0) + '">Hapus</button>' +
           '</div>';
       }
@@ -650,8 +441,7 @@ $('historyList').addEventListener('click', (e) => {
   const id = parseInt(btn.getAttribute('data-id'), 10);
   const act = btn.getAttribute('data-act');
   if (act === 'hapus') handleDelete(btn, id);
-  else if (act === 'lihat') loadResult(id);
-  else if (act === 'approve') approveResultFromHistory(id);
+  else if (act === 'lihat') loadResult(id, btn);
 });
 
 function handleDelete(btn, id) {
@@ -686,7 +476,12 @@ async function reallyDelete(id) {
   } catch (e) { toast('Gagal hapus: ' + e.message, 'fail'); }
 }
 
-async function loadResult(id) {
+async function loadResult(id, btn) {
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add('loading');
+    btn.innerHTML = '<span class="spin"></span>Memuat';
+  }
   try {
     const r = await fetch('/api/mc/results/' + id);
     const d = await r.json();
@@ -697,20 +492,19 @@ async function loadResult(id) {
     renderTable();
     $('filterChips').style.display = 'flex';
     $('btnExport').disabled = false;
-    updateApproveButton(true);
     $('status').className = 'ok';
     $('status').textContent = '#' + id + ' — ' + d.total + ' baris, ' + d.exist_count + ' EXISTING, ' + d.new_count + ' NEW ITEM' + (d.review_count ? ', ' + d.review_count + ' REVIEW' : '') + (d.approved ? ' \u2014 APPROVED' : '');
-    setupReview();
     window.scrollTo({ top: $('tbl').offsetTop - 80, behavior: 'smooth' });
   } catch (e) { toast('Gagal load: ' + e.message, 'fail'); }
+  finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+      btn.textContent = 'Lihat';
+    }
+  }
 }
 window.loadResult = loadResult;
-
-async function approveResultFromHistory(id) {
-  currentResultId = id;
-  currentResultApproved = false;
-  $('btnApproveResult').click();
-}
 
 async function deleteResult(id) {
   if (!confirm('Hapus riwayat compare #' + id + '? Data item di Masterlist tidak terpengaruh.')) return;
@@ -728,7 +522,6 @@ async function deleteResult(id) {
   } catch (e) { toast('Gagal hapus: ' + e.message, 'fail'); }
 }
 window.deleteResult = deleteResult;
-window.approveResultFromHistory = approveResultFromHistory;
 
 
 function fmtBytes(b) { return b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(1) + ' KB' : (b / 1048576).toFixed(1) + ' MB'; }
@@ -757,17 +550,6 @@ async function checkSuperAdmin() {
 checkSuperAdmin();
 
 
-$('revokeBtn').addEventListener('click', async (e) => {
-  e.stopPropagation();
-  if (!confirm('Putus koneksi Google Drive?\n\nIni akan menghapus token tersimpan.\nKemudian bisa hubungkan akun Google lain lewat menu Ekspor.')) return;
-  try {
-    const d = await (await fetch('/api/gdrive/revoke', { method: 'POST' })).json();
-    if (d.error) throw new Error(d.error);
-    toast(d.msg || 'Token Drive dihapus', 'ok');
-    $('navSettingsDD').classList.remove('show');
-  } catch (err) { toast('Gagal: ' + err.message, 'fail'); }
-});
-
 const clearAllOrig = $('clearAllBtn').innerHTML;
 let resetArm = false;
 $('clearAllBtn').addEventListener('click', async (e) => {
@@ -793,16 +575,10 @@ $('clearAllBtn').addEventListener('click', async (e) => {
     currentResultId = null;
     currentResultApproved = false;
     compareResults = [];
-    newItems = [];
     $('tbody').innerHTML = '';
     $('tbl').style.display = 'none';
-    $('reviewSec').style.display = 'none';
     $('btnCompare').disabled = true;
     $('btnExport').disabled = true;
-    $('btnApproveResult').disabled = true;
-    $('btnApproveResult').textContent = 'Approve & Simpan';
-    $('btnApproveResult').style.opacity = '';
-    $('approveStatus').style.display = 'none';
     $('filterChips').style.display = 'none';
     searchQuery = '';
     const si = $('searchInput'); if (si) si.value = '';
@@ -810,18 +586,158 @@ $('clearAllBtn').addEventListener('click', async (e) => {
     $('status').className = ''; $('status').textContent = '';
     toast('Semua data MC di-reset.', 'ok');
     loadPlUploads();
-    loadMasterlists();
     loadHistory();
   } catch (e) { toast('Gagal reset: ' + e.message, 'fail'); }
 });
 
 
 loadPlUploads();
-loadMasterlists();
 loadHistory();
 
 
 
 window.addEventListener('pageshow', (e) => {
-  if (e.persisted) { loadPlUploads(); loadMasterlists(); loadHistory(); }
+  if (e.persisted) { loadPlUploads(); loadHistory(); }
 });
+
+$('aliasBtn').addEventListener('click', async () => {
+  $('navSettingsDD').classList.remove('show');
+  $('aliasModal').classList.add('show');
+  const inp = $('aliasInput');
+  inp.value = '';
+  inp.focus();
+  await loadAliases();
+});
+
+$('aliasClose').addEventListener('click', () => $('aliasModal').classList.remove('show'));
+
+$('aliasModal').addEventListener('click', (e) => {
+  if (e.target === $('aliasModal')) $('aliasModal').classList.remove('show');
+});
+
+async function loadAliases() {
+  const box = $('aliasList');
+  try {
+    const r = await fetch('/api/mc/aliases', { cache: 'no-store' });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    const list = d.aliases || [];
+    if (!list.length) { box.innerHTML = '<div class="alias-empty">Belum ada alias.</div>'; return; }
+    box.innerHTML = list.map((a) => '<div class="alias-item"><span class="alias-txt">' + esc(a.a) + '</span><span class="alias-eq">=</span><span class="alias-txt">' + esc(a.b) + '</span><button class="alias-del" data-id="' + a.id + '" title="Hapus">\u2715</button></div>').join('');
+  } catch (e) {
+    box.innerHTML = '<div class="alias-empty">Gagal load: ' + esc(e.message) + '</div>';
+  }
+}
+
+$('aliasList').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.alias-del');
+  if (!btn) return;
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/mc/aliases/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: Number(btn.dataset.id) }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    toast('Alias dihapus.', 'ok');
+    await loadAliases();
+  } catch (err) { btn.disabled = false; toast('Gagal hapus: ' + err.message, 'fail'); }
+});
+
+async function applyAlias() {
+  const raw = $('aliasInput').value.trim();
+  if (!raw) { toast('Isi dulu: kata lama = kata baru', 'fail'); return; }
+  const i = raw.indexOf('=');
+  if (i < 1) { toast('Format: kiri = kanan', 'fail'); return; }
+  const a = raw.slice(0, i).trim();
+  const b = raw.slice(i + 1).trim();
+  if (!a || !b) { toast('Dua sisi harus terisi', 'fail'); return; }
+  const btn = $('aliasApply');
+  btn.disabled = true; btn.textContent = 'Menyimpan...';
+  try {
+    const r = await fetch('/api/mc/aliases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ a: a, b: b }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    $('aliasInput').value = '';
+    toast('Alias tersimpan: ' + d.a + ' = ' + d.b, 'ok');
+    await loadAliases();
+    if ($('aliasAutoCompare').checked && (plUploadIds.length || currentPlUploadId)) {
+      $('aliasModal').classList.remove('show');
+      setTimeout(() => runCompareNow(), 250);
+    }
+  } catch (e) { toast('Gagal: ' + e.message, 'fail'); }
+  finally { btn.disabled = false; btn.textContent = 'Apply'; }
+}
+
+$('aliasApply').addEventListener('click', applyAlias);
+
+$('aliasInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); applyAlias(); }
+});
+
+$('ignoreBtn').addEventListener('click', async () => {
+  $('navSettingsDD').classList.remove('show');
+  $('ignoreModal').classList.add('show');
+  const inp = $('ignoreInput');
+  inp.value = '';
+  inp.focus();
+  await loadIgnores();
+});
+
+$('ignoreClose').addEventListener('click', () => $('ignoreModal').classList.remove('show'));
+
+$('ignoreModal').addEventListener('click', (e) => {
+  if (e.target === $('ignoreModal')) $('ignoreModal').classList.remove('show');
+});
+
+async function loadIgnores() {
+  const box = $('ignoreList');
+  try {
+    const r = await fetch('/api/mc/ignores', { cache: 'no-store' });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    const list = d.words || [];
+    if (!list.length) { box.innerHTML = '<div class="alias-empty">Belum ada kata diabaikan.</div>'; return; }
+    box.innerHTML = list.map((a) => '<div class="alias-item"><span class="alias-txt">' + esc(a.word) + '</span><button class="alias-del" data-id="' + a.id + '" title="Hapus">\u2715</button></div>').join('');
+  } catch (e) {
+    box.innerHTML = '<div class="alias-empty">Gagal load: ' + esc(e.message) + '</div>';
+  }
+}
+
+$('ignoreList').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.alias-del');
+  if (!btn) return;
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/mc/ignores/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: Number(btn.dataset.id) }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    toast('Kata dihapus.', 'ok');
+    await loadIgnores();
+  } catch (err) { btn.disabled = false; toast('Gagal hapus: ' + err.message, 'fail'); }
+});
+
+async function applyIgnore() {
+  const word = $('ignoreInput').value.trim();
+  if (!word) { toast('Isi satu kata', 'fail'); return; }
+  const btn = $('ignoreApply');
+  btn.disabled = true; btn.textContent = 'Menyimpan...';
+  try {
+    const r = await fetch('/api/mc/ignores', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ word: word }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    $('ignoreInput').value = '';
+    toast('Kata diabaikan: ' + d.word, 'ok');
+    await loadIgnores();
+    if ($('ignoreAutoCompare').checked && (plUploadIds.length || currentPlUploadId)) {
+      $('ignoreModal').classList.remove('show');
+      setTimeout(() => runCompareNow(), 250);
+    }
+  } catch (e) { toast('Gagal: ' + e.message, 'fail'); }
+  finally { btn.disabled = false; btn.textContent = 'Apply'; }
+}
+
+$('ignoreApply').addEventListener('click', applyIgnore);
+
+$('ignoreInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); applyIgnore(); }
+});
+

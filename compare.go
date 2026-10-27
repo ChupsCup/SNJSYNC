@@ -76,19 +76,28 @@ func sliceRunes(s string, n int) string {
 }
 
 var brandAliases = map[string]string{
-	"nolans": "nolan", "necks": "neck", "meramistptyltd": "meramist", "estrella": "estrela",
+	"nolans": "nolan", "meramistptyltd": "meramist", "estrella": "estrela",
 	"silverfern": "silverfarms", "silverfernfarms": "silverfarms", "sff": "silverfarms",
 	"moonbeef": "monbeef", "jbs": "swift", "jbsswift": "swift", "cab": "swift",
 	"lockyearvalley": "lockyervalley", "alaali": "alali",
+	"frigon": "frigol", "amh": "swift", "tyson": "ibp", "tysonfreshmeats": "ibp",
+	"gandkoconnor": "oconnor", "gkoconnor": "oconnor", "gandk": "oconnor", "g k oconnor": "oconnor",
+	"hardwick": "hardwicks", "kilcoyhardwick": "hardwicks",
 }
 
 var synMap = map[string]string{
 	"bovine": "beef", "bnls": "boneless", "offals": "offal", "papilae": "papillae",
+	"papila": "papillae", "trmg": "trimming", "trmm": "trimming", "trimm": "trimming",
+	"trimmings": "trimming", "diafragma": "diaphragm", "knukle": "knuckle",
+	"flang": "flank", "striploin": "striploin", "shortloin": "shortloin",
+	"cuberoll": "cuberoll", "ribeye": "ribeye", "chuckroll": "chuckroll",
 }
 
 var plurals = map[string]string{
 	"bones": "bone", "roots": "root", "hearts": "heart", "necks": "neck",
 	"sinews": "sinew", "tendons": "tendon", "tracheas": "trachea", "tripes": "tripe",
+	"ribs": "rib", "loins": "loin", "chops": "chop", "shanks": "shank",
+	"lobes": "lobe",
 }
 
 func newSetOf(keys ...string) *strSet {
@@ -101,8 +110,11 @@ func newSetOf(keys ...string) *strSet {
 
 var placeholderWords = newSetOf("blm", "ada", "link")
 var descriptors = newSetOf("frozen", "beef", "bovine", "boneless", "offal", "meat", "halal",
-	"fresh", "chilled", "food", "industrial", "trim", "trimming", "necktrim", "trimmed", "papillae")
-var prepDrop = newSetOf("frozen", "boneless", "beef", "offal")
+	"fresh", "chilled", "food", "industrial", "trim", "trimming", "necktrim", "trimmed", "papillae",
+	"pack", "packing", "package", "packaged", "higher", "certified", "premium", "quality", "product", "export",
+	"out", "carton", "cartons", "box", "poly", "polybag", "vp", "iwp",
+	"lobes", "lobe", "throat", "intercostal", "shoulder")
+var prepDrop = newSetOf("frozen", "boneless", "beef", "offal", "pack", "packing", "higher", "certified", "premium", "shoulder", "intercostal", "throat", "lobes")
 var prefixOK = newSetOf("steak", "rib", "ribs")
 var stopBrandWords = newSetOf("beef", "meat", "packing", "processing", "food", "valley", "frozen",
 	"goods", "pty", "ltd", "sdn", "bhd", "inc", "co", "angus", "usda", "prime", "choice", "grade",
@@ -176,7 +188,7 @@ func canonParts(b string) []string {
 	return out
 }
 
-var rePlur = regexp.MustCompile(`(?i)\b(bones|roots|hearts|necks|sinews|tendons|tracheas|tripes)\b`)
+var rePlur = regexp.MustCompile(`(?i)\b(bones|roots|hearts|necks|sinews|tendons|tracheas|tripes|ribs|loins|chops|shanks)\b`)
 
 func plur(s string) string {
 	return rePlur.ReplaceAllStringFunc(s, func(w string) string {
@@ -187,7 +199,7 @@ func plur(s string) string {
 	})
 }
 
-var reVL = regexp.MustCompile(`(?i)(\d)\s*vl\b`)
+var reVL = regexp.MustCompile(`(?i)(\d{1,3})\s*v(?:l)?\b`)
 var reME = regexp.MustCompile(`(?i)\bme[\s-]*(\d{2,4})\b`)
 var reProdKey = regexp.MustCompile(`(?i)\b([a-z]{2,5})\s*[-]?\s*(\d{2,5})\b`)
 
@@ -397,11 +409,13 @@ func specTokens(s string) *strSet {
 		if w == "" {
 			continue
 		}
-		if len(w) == 1 {
-			if regexp.MustCompile(`[a-z]`).MatchString(w) {
-				out.Add(w)
+		if len(w) <= 4 && strings.ContainsAny(w, "0123456789") && strings.ContainsAny(w, "abcdefghijklmnopqrstuvwxyz") {
+			if reNumUnit.MatchString(w) {
+				continue
 			}
-		} else if len(w) <= 3 && strings.ContainsAny(w, "0123456789") && strings.ContainsAny(w, "abcdefghijklmnopqrstuvwxyz") {
+			if w == "3d" || strings.HasPrefix(w, "me") || w == "0kg" {
+				continue
+			}
 			out.Add(w)
 		}
 	}
@@ -409,7 +423,7 @@ func specTokens(s string) *strSet {
 }
 
 func gradeOf(s string) string {
-	toks := splitAlphaNum(strings.ToLower(s))
+	toks := splitAlphaNum(strings.ToLower(reGradePair.ReplaceAllString(s, " ")))
 	for i := len(toks) - 1; i >= 0; i-- {
 		if len(toks[i]) == 1 && toks[i][0] >= 'a' && toks[i][0] <= 'z' {
 			return toks[i]
@@ -457,6 +471,8 @@ type compareEngine struct {
 	masterByCode   map[string]*masterEntry
 	snjCodeIndex   map[string][]*masterEntry
 	lev            *levCacheT
+	aliases        *aliasRules
+	ignores        *ignoreWords
 }
 
 func newCompareEngine() *compareEngine {
@@ -486,11 +502,11 @@ func (e *compareEngine) build(approved []mlItem, decisions map[string]*reviewDec
 		m := &approved[i]
 		descS := ""
 		if m.ItemDesc != "" && m.ItemDesc != m.NamaItem {
-			descS = normME(normVL(plur(m.ItemDesc)))
+			descS = normME(normVL(e.aliases.apply(plur(m.ItemDesc))))
 		}
 		nameS := ""
 		if m.NamaItem != "" && m.NamaItem != m.Gabungan {
-			nameS = normME(normVL(plur(m.NamaItem)))
+			nameS = normME(normVL(e.aliases.apply(plur(m.NamaItem))))
 		}
 		full := normStr(descS) + " " + normStr(nameS)
 		toks := newSet()
@@ -500,10 +516,14 @@ func (e *compareEngine) build(approved []mlItem, decisions map[string]*reviewDec
 		words := []string{}
 		wordsSet := newSet()
 		for _, t := range toks.List() {
-			if !isNumTok(t) {
-				words = append(words, t)
-				wordsSet.Add(t)
+			if isNumTok(t) {
+				continue
 			}
+			if e.ignores.Has(t) {
+				continue
+			}
+			words = append(words, t)
+			wordsSet.Add(t)
 		}
 		nb := normBrand(m.Brand)
 		bCanon := nb
@@ -519,6 +539,8 @@ func (e *compareEngine) build(approved []mlItem, decisions map[string]*reviewDec
 				}
 			}
 		}
+		specSet := specTokens(normStr(e.aliases.apply(m.ItemDesc)) + " " + normStr(e.aliases.apply(m.NamaItem)) + " " + normStr(e.aliases.apply(m.Gabungan)))
+		e.ignores.filterSet(specSet)
 		ent := &masterEntry{
 			m:             m,
 			brandKey:      nb,
@@ -531,14 +553,14 @@ func (e *compareEngine) build(approved []mlItem, decisions map[string]*reviewDec
 			wordsSet:      wordsSet,
 			nums:          standAloneNums(full),
 			numsLong:      newSetFromSlice(reDigitsAny4.FindAllString(full, -1)),
-			star:          starGrades(m.ItemDesc + " " + m.NamaItem + " " + m.Gabungan),
-			grade:         gradeOf(m.ItemDesc + " " + m.NamaItem),
-			gradeAll:      gradeOf(m.ItemDesc + " " + m.NamaItem + " " + m.Gabungan),
+			star:          starGrades(e.aliases.apply(m.ItemDesc) + " " + e.aliases.apply(m.NamaItem) + " " + e.aliases.apply(m.Gabungan)),
+			grade:         gradeOf(e.aliases.apply(m.ItemDesc) + " " + e.aliases.apply(m.NamaItem)),
+			gradeAll:      gradeOf(e.aliases.apply(m.ItemDesc) + " " + e.aliases.apply(m.NamaItem) + " " + e.aliases.apply(m.Gabungan)),
 			snjCodes:      mlSnjCodeSet(m.ItemDesc + " " + m.NamaItem),
 			slotNums:      mlSlotNums(m.ItemDesc + " " + m.NamaItem + " " + m.Gabungan),
 			estNums:       mlEstNums(m.ItemDesc + " " + m.NamaItem + " " + m.Gabungan),
 			estList:       extractEsts(m.ItemDesc, m.NamaItem, m.Gabungan),
-			specSet:       specTokens(normStr(m.ItemDesc) + " " + normStr(m.NamaItem) + " " + normStr(m.Gabungan)),
+			specSet:       specSet,
 			bStop:         newSetFromSlice(filterLen3(splitAlphaNum(strings.ToLower(m.Brand)))),
 			descBrandFlat: normBrand(descS + " " + nameS),
 			importir:      normImportir(m.Importir + " " + m.ItemDesc + " " + m.Gabungan),
@@ -722,16 +744,30 @@ var (
 	reBoneOut    = regexp.MustCompile(`(?i)\bbone\s*out\b`)
 	reWithBone   = regexp.MustCompile(`(?i)\bwith\s+bone\b`)
 	reBoneLess   = regexp.MustCompile(`(?i)\bbone[\s-]*less\b`)
+	reBI         = regexp.MustCompile(`(?i)\bb\s*[/ -]\s*i\b`)
+	reST         = regexp.MustCompile(`(?i)\bs\s*[/ -]\s*t\b`)
 	reNaturafrig = regexp.MustCompile(`(?i)naturafrig`)
 	reIndustrial = regexp.MustCompile(`(?i)industrial meat`)
 	reNeckTrim   = regexp.MustCompile(`(?i)\bneck\s*trim\b|\bnecktrim\b`)
 	reCM         = regexp.MustCompile(`(?i)\bcm\b`)
 	reHM         = regexp.MustCompile(`(?i)\bhm\b`)
+	reDiaphragm  = regexp.MustCompile(`(?i)diaphragm`)
+	reVacPack    = regexp.MustCompile(`(?i)\bvac(?:uum)?[\s-]*pack(?:ing)?\b`)
+	reGradePair  = regexp.MustCompile(`(?i)\b[a-z]\s*/\s*[a-z]\b`)
+	reShortLoin  = regexp.MustCompile(`(?i)\bshort[\s-]+loins?\b`)
+	reStripLoin  = regexp.MustCompile(`(?i)\bstrip[\s-]+loins?\b`)
+	reOxZero     = regexp.MustCompile(`(?i)\box(\d)`)
+	reNumUnit    = regexp.MustCompile(`^\d+(?:kg|g|gr|lbs?|ml|oz)$`)
 	reRemoveCMHM = regexp.MustCompile(`(?i)\b(?:cm|hm)\b`)
 )
 
 func clearSyn(s string) string {
 	s = rePaddy.ReplaceAllString(s, " ligamentum ")
+	s = reVacPack.ReplaceAllString(s, " ")
+	s = reShortLoin.ReplaceAllString(s, " SHORTLOIN ")
+	s = reStripLoin.ReplaceAllString(s, " STRIPLOIN ")
+	s = reOxZero.ReplaceAllString(s, "0X$1")
+	s = reST.ReplaceAllString(s, " ")
 	return reNuche.ReplaceAllString(s, " ligamentum ")
 }
 
@@ -739,13 +775,14 @@ func dropBonePhrase(s string) string {
 	s = reBoneIn.ReplaceAllString(s, " ")
 	s = reBoneOut.ReplaceAllString(s, " ")
 	s = reWithBone.ReplaceAllString(s, " ")
+	s = reBI.ReplaceAllString(s, " ")
 	return reBoneLess.ReplaceAllString(s, "boneless")
 }
 
 func (e *compareEngine) lookupMaster(r *plItem) lookupHit {
-	rawNama := normME(normVL(plur(r.NamaItem)))
-	itemDesc := normME(normVL(plur(r.ItemDesc)))
-	gab := normME(normVL(plur(r.Gabungan)))
+	rawNama := normME(normVL(e.aliases.apply(plur(r.NamaItem))))
+	itemDesc := normME(normVL(e.aliases.apply(plur(r.ItemDesc))))
+	gab := normME(normVL(e.aliases.apply(plur(r.Gabungan))))
 
 	rawNamaT := clearSyn(rawNama)
 	itemDescT := clearSyn(itemDesc)
@@ -770,6 +807,8 @@ func (e *compareEngine) lookupMaster(r *plItem) lookupHit {
 				out = reIndustrial.ReplaceAllString(out, "CHEEK MEAT")
 			case reHM.MatchString(out):
 				out = reIndustrial.ReplaceAllString(out, "HEAD MEAT")
+			case reDiaphragm.MatchString(out):
+				out = reIndustrial.ReplaceAllString(out, "DIAPHRAGM TRIMM")
 			}
 			return reRemoveCMHM.ReplaceAllString(out, " ")
 		}
@@ -782,6 +821,15 @@ func (e *compareEngine) lookupMaster(r *plItem) lookupHit {
 		filtered := make([]string, 0, keyTokSet.Len())
 		for _, t := range keyTokSet.List() {
 			if !placeholderWords.Has(t) {
+				filtered = append(filtered, t)
+			}
+		}
+		keyTokSet = newSetFromSlice(filtered)
+	}
+	if e.ignores != nil && e.ignores.set != nil && e.ignores.set.Len() > 0 {
+		filtered := make([]string, 0, keyTokSet.Len())
+		for _, t := range keyTokSet.List() {
+			if !e.ignores.Has(t) {
 				filtered = append(filtered, t)
 			}
 		}
@@ -802,13 +850,17 @@ func (e *compareEngine) lookupMaster(r *plItem) lookupHit {
 	keySet := newSetFromSlice(keyWords)
 	plImportir := r.importirPL(itemDesc, gab)
 	nameExact := normStr(rawNamaT)
-	plProds := newSetFromSlice(prodKeys(rawNamaT + " " + itemDesc))
+	plProds := newSetFromSlice(prodKeys(rawNamaT + " " + itemDesc + " " + r.ItemCode + " " + r.Gabungan))
 	plGrade := gradeOf(rawNama + " " + itemDesc + " " + gab)
 	plVarN := estVariant(rawNama + " " + itemDesc + " " + gab)
 	plEsts := extractEsts(rawNama, itemDesc, gab)
 	parts := canonParts(r.Brand)
 	partSet := newSetFromSlice(parts)
-	plSpec := specTokens(normStr(rawNamaT) + " " + normStr(itemDesc) + " " + normStr(gab))
+	plSpec := specTokens(normStr(rawNamaT) + " " + normStr(itemDescT) + " " + normStr(gabT))
+	e.ignores.filterSet(plSpec)
+	if plGrade != "" {
+		plSpec.Delete(plGrade)
+	}
 	for _, p := range partSet.List() {
 		plSpec.Delete(p)
 	}
@@ -824,12 +876,20 @@ func (e *compareEngine) lookupMaster(r *plItem) lookupHit {
 		return false
 	}
 
-	dKey := normStr(r.Brand) + "|" + normStr(rawNama)
-	if dec, ok := e.decisions[dKey]; ok {
+	dKeyNorm := normStr(r.Brand) + "|" + normStr(rawNama)
+	dKeyRaw := normStr(r.Brand) + "|" + normStr(r.NamaItem)
+	decNew := false
+	var dec *reviewDecision
+	if d, ok := e.decisions[dKeyNorm]; ok {
+		dec = d
+	} else if d, ok := e.decisions[dKeyRaw]; ok {
+		dec = d
+	}
+	if dec != nil {
 		if dec.Decision == "new" {
-			return lookupHit{status: "NEW", note: "Sudah divalidasi manual: item baru"}
+			decNew = true
 		}
-		if dec.MasterCode != "" {
+		if dec.Decision != "new" && dec.MasterCode != "" {
 			if dm, ok := e.masterByCode[dec.MasterCode]; ok {
 				if plImportir == "" || dm.importir == "" || dm.importir == plImportir {
 					desc := dm.m.ItemDesc
@@ -847,9 +907,29 @@ func (e *compareEngine) lookupMaster(r *plItem) lookupHit {
 		}
 	}
 
-	plCodes := extractCodes2(rawNamaT + " " + itemDesc)
+	// Direct item code match from packing list
+	if r.ItemCode != "" && r.ItemCode != "-" {
+		normIC := normKode(r.ItemCode)
+		if me, ok := e.masterByCode[r.ItemCode]; ok && me != nil {
+			if plImportir == "" || me.importir == "" || me.importir == plImportir {
+				desc := orName(me.m.ItemDesc, me.m.NamaItem)
+				return lookupHit{status: "EXISTING", sym: 1, m: me.m,
+					note: "Cocok item code PL (" + r.ItemCode + ") -> " + sliceRunes(desc, 70) + " [" + me.m.ItemCode + "]"}
+			}
+		}
+		if me, ok := e.masterByCode[normIC]; ok && me != nil {
+			if plImportir == "" || me.importir == "" || me.importir == plImportir {
+				desc := orName(me.m.ItemDesc, me.m.NamaItem)
+				return lookupHit{status: "EXISTING", sym: 1, m: me.m,
+					note: "Cocok item code PL (" + r.ItemCode + ") -> " + sliceRunes(desc, 70) + " [" + me.m.ItemCode + "]"}
+			}
+		}
+	}
+
+	plCodes := extractCodes2(rawNamaT + " " + itemDesc + " " + r.ItemCode + " " + r.Gabungan)
 	if plCodes.Len() > 0 {
 		var codeBestBrand, codeBestBrandExact *masterEntry
+		var codeBestBrandNoImp, codeBestBrandExactNoImp *masterEntry
 		rupper := ""
 		brandParen := func(en *masterEntry) bool {
 			raw := en.m.ItemDesc + " " + en.m.NamaItem + " " + en.m.Gabungan
@@ -874,17 +954,34 @@ func (e *compareEngine) lookupMaster(r *plItem) lookupHit {
 			if plImportir != "" && ent.importir != "" && ent.importir != plImportir {
 				continue
 			}
+			impOK := plImportir == "" || ent.importir == plImportir
 			if brandParen(ent) {
-				if codeBestBrandExact == nil {
-					codeBestBrandExact = ent
+				if impOK {
+					if codeBestBrandExact == nil {
+						codeBestBrandExact = ent
+					}
+				} else if codeBestBrandExactNoImp == nil {
+					codeBestBrandExactNoImp = ent
 				}
-			} else if agree(ent) && codeBestBrand == nil {
-				codeBestBrand = ent
+			} else if agree(ent) {
+				if impOK {
+					if codeBestBrand == nil {
+						codeBestBrand = ent
+					}
+				} else if codeBestBrandNoImp == nil {
+					codeBestBrandNoImp = ent
+				}
 			}
 		}
 		em := codeBestBrandExact
 		if em == nil {
+			em = codeBestBrandExactNoImp
+		}
+		if em == nil && !decNew {
 			em = codeBestBrand
+		}
+		if em == nil && !decNew {
+			em = codeBestBrandNoImp
 		}
 		if em != nil {
 			desc := em.m.ItemDesc
@@ -895,9 +992,16 @@ func (e *compareEngine) lookupMaster(r *plItem) lookupHit {
 			if code == "" {
 				code = "-"
 			}
-			return lookupHit{status: "EXISTING", sym: 1, m: em.m,
-				note: "Kode kepemilikan SNJ (" + strings.Join(plCodes.List(), ",") + ") -> " + sliceRunes(desc, 70) + " [" + code + "]"}
+			note := "Kode kepemilikan SNJ (" + strings.Join(plCodes.List(), ",") + ") -> " + sliceRunes(desc, 70) + " [" + code + "]"
+			if decNew {
+				note = "Item sudah ada di master, keputusan manual lama diabaikan: " + sliceRunes(desc, 70) + " [" + code + "]"
+			}
+			return lookupHit{status: "EXISTING", sym: 1, m: em.m, note: note}
 		}
+	}
+
+	if decNew {
+		return lookupHit{status: "NEW", note: "Sudah divalidasi manual: item baru"}
 	}
 
 	contentWords := []string{}
@@ -1089,7 +1193,36 @@ func (e *compareEngine) lookupMaster(r *plItem) lookupHit {
 			}
 		}
 		if len(full) > 0 {
-			pool = full
+			hasAgreeInPool := false
+			for _, en := range pool {
+				if agree(en) {
+					hasAgreeInPool = true
+					break
+				}
+			}
+			if hasAgreeInPool {
+				fullAgree := []*masterEntry{}
+				for _, en := range full {
+					if agree(en) {
+						fullAgree = append(fullAgree, en)
+					}
+				}
+				if len(fullAgree) > 0 {
+					pool = fullAgree
+				} else {
+					sameBrand := []*masterEntry{}
+					for _, en := range pool {
+						if agree(en) {
+							sameBrand = append(sameBrand, en)
+						}
+					}
+					if len(sameBrand) > 0 {
+						pool = sameBrand
+					}
+				}
+			} else {
+				pool = full
+			}
 		}
 	}
 
@@ -1145,14 +1278,14 @@ func (e *compareEngine) lookupMaster(r *plItem) lookupHit {
 		if a == nil {
 			return true
 		}
+		if b.isAgree != a.isAgree {
+			return b.isAgree
+		}
 		if b.pri != a.pri {
 			return b.pri > a.pri
 		}
 		if b.sym != a.sym {
 			return b.sym > a.sym
-		}
-		if b.isAgree != a.isAgree {
-			return b.isAgree
 		}
 		if b.varSlot != a.varSlot {
 			return b.varSlot
@@ -1247,20 +1380,32 @@ func (e *compareEngine) lookupMaster(r *plItem) lookupHit {
 				varAdj = -0.25
 			}
 		}
+		candNonEstNums := newSet()
+		for _, cn := range cand.nums.List() {
+			if !cand.estNums.Has(cn) {
+				candNonEstNums.Add(cn)
+			}
+		}
+		plNonEstNums := newSet()
+		for _, pn := range keyNums.List() {
+			if !cand.estNums.Has(pn) && pn != plVarN {
+				plNonEstNums.Add(pn)
+			}
+		}
 		if keyNums.Len() > 0 {
 			if cand.nums.Len() > 0 {
-				if sharedNums == 0 {
-					varAdj += -0.5
+				if sharedNums == 0 && candNonEstNums.Len() > 0 && plNonEstNums.Len() > 0 {
+					varAdj += -0.35
 				}
-			} else if plVarN == "" {
-				varAdj += -0.25
+			} else if plVarN == "" && plNonEstNums.Len() > 0 {
+				varAdj += -0.15
 			}
 		}
 		if !prodCompat {
 			sharedNums = 0
 			varAdj = 0
 		}
-		numConflict := keyNums.Len() > 0 && cand.nums.Len() > 0 && sharedNums == 0
+		numConflict := plNonEstNums.Len() > 0 && candNonEstNums.Len() > 0 && sharedNums == 0
 		adj := minF(0.2, float64(sharedNums)*0.1)
 		if isAgree {
 			adj += 0.08
@@ -1438,6 +1583,10 @@ func (e *compareEngine) lookupMaster(r *plItem) lookupHit {
 				join = join[:2]
 			}
 			kunci = strings.Join(join, "\", \"")
+		}
+		if sym >= tAuto && contentOverlap && short != "" && code != "" {
+			return lookupHit{status: "NEW", review: true, sym: sym, cand: be.m,
+				note: "Kandidat kuat di master (" + short + " [" + code + "]), tapi kata \"" + kunci + "\" di PL tak ada di master; perlu dicek"}
 		}
 		return lookupHit{status: "NEW", sym: sym,
 			note: "Belum ada produk ber-brand " + brandDash + " yang cocok di ML (kata \"" + kunci + "\" tak ada)"}

@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -117,6 +118,7 @@ var staticFiles = map[string]string{
 	"/user":              "user.html",
 	"/user.html":         "user.html",
 	"/user.js":           "user.js",
+	"/office.js":         "office.js",
 	"/dashboard":         "dashboard.html",
 	"/dashboard.html":    "dashboard.html",
 	"/login":             "login.html",
@@ -137,7 +139,9 @@ var staticFiles = map[string]string{
 	"/account.js":        "account.js",
 	"/batch.js":          "batch.js",
 	"/mc.js":             "mc.js",
+	"/pm.js":             "pm.js",
 	"/bg-dashboard.jpeg": "bg-dashboard.jpeg",
+	"/clay.css":          "clay.css",
 }
 
 func (a *App) serveStatic(w http.ResponseWriter, r *http.Request) {
@@ -169,7 +173,11 @@ func (a *App) handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
-		if adminPages[r.URL.Path] && !a.requirePageLogin(w, r) {
+		if loginPages[r.URL.Path] && !a.requirePageLogin(w, r) {
+			return
+		}
+
+		if adminPages[r.URL.Path] && !a.requirePageAdmin(w, r) {
 			return
 		}
 
@@ -204,6 +212,8 @@ func (a *App) withSecurity(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "same-origin")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
 		if strings.Contains(r.URL.Path, "..") {
 			sendErr(w, 400, "Bad path")
 			return
@@ -215,7 +225,15 @@ func (a *App) withSecurity(next http.Handler) http.Handler {
 func (a *App) apiRouter(w http.ResponseWriter, r *http.Request) {
 	p := r.URL.Path
 
-	if !publicAPI[p] && !authAPI[p] {
+	if mod, ok := moduleAPI[p]; ok {
+		if a.requireModule(w, r, mod) == nil {
+			return
+		}
+	} else if loginOnlyAPI[p] {
+		if a.requireUser(w, r) == nil {
+			return
+		}
+	} else if !publicAPI[p] && !authAPI[p] {
 		if a.requireAdmin(w, r) == nil {
 			return
 		}
@@ -256,6 +274,8 @@ func (a *App) apiRouter(w http.ResponseWriter, r *http.Request) {
 
 	case p == "/api/auth/accounts" && r.Method == http.MethodGet:
 		a.accountsListAPI(w, r)
+	case p == "/api/auth/accounts/activity" && r.Method == http.MethodGet:
+		a.accountsActivityAPI(w, r)
 	case p == "/api/auth/accounts/create" && r.Method == http.MethodPost:
 		a.accountsCreateAPI(w, r)
 	case p == "/api/auth/accounts/update" && r.Method == http.MethodPost:
@@ -330,12 +350,29 @@ func (a *App) apiRouter(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(p, "/api/mc/pl-status/") && r.Method == http.MethodGet:
 		a.uploadStatus(w, r, strings.TrimPrefix(p, "/api/mc/pl-status/"), "packing_uploads")
 	case p == "/api/mc/dbstatus" && r.Method == http.MethodGet:
-		st := pgStatus()
+		a.dbMu.Lock()
+		db := a.db
+		a.dbMu.Unlock()
+		status, message := "down", "Database belum terhubung."
+		if db != nil {
+			ctx, cancel := ctxTimeout(3 * time.Second)
+			err := db.PingContext(ctx)
+			cancel()
+			if err == nil {
+				status, message = "ready", "Database terhubung."
+			} else {
+				message = "Database tidak merespons: " + err.Error()
+			}
+		}
+		container := ""
+		if st := pgStatus(); st != "docker-tidak-ada" {
+			container = pgContainer
+		}
 		sendJSON(w, 200, map[string]any{
-			"status":    st,
-			"ready":     st == "ready",
-			"message":   pgInfoMsg(st),
-			"container": pgContainer,
+			"status":    status,
+			"ready":     status == "ready",
+			"message":   message,
+			"container": container,
 		})
 	case p == "/api/mc/pl-uploads" && r.Method == http.MethodGet:
 		if a.requireDB(w) == nil {
@@ -383,6 +420,18 @@ func (a *App) apiRouter(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		sendJSON(w, 200, resp)
+	case p == "/api/mc/aliases" && r.Method == http.MethodGet:
+		a.mcAliasList(w, r)
+	case p == "/api/mc/aliases" && r.Method == http.MethodPost:
+		a.mcAliasAdd(w, r)
+	case p == "/api/mc/aliases/delete" && r.Method == http.MethodPost:
+		a.mcAliasDelete(w, r)
+	case p == "/api/mc/ignores" && r.Method == http.MethodGet:
+		a.mcIgnoreList(w, r)
+	case p == "/api/mc/ignores" && r.Method == http.MethodPost:
+		a.mcIgnoreAdd(w, r)
+	case p == "/api/mc/ignores/delete" && r.Method == http.MethodPost:
+		a.mcIgnoreDelete(w, r)
 	case p == "/api/mc/results" && r.Method == http.MethodGet:
 		a.mcResultsList(w, r)
 	case p == "/api/mc/export" && r.Method == http.MethodPost:
@@ -432,10 +481,7 @@ func freePort(p int) bool {
 }
 
 func main() {
-	root := exeDir()
-	if v := os.Getenv("CTF_ROOT"); v != "" {
-		root = v
-	}
+	root := appRoot()
 	a := newApp(root)
 
 	go func() {
@@ -454,7 +500,11 @@ func main() {
 	}
 
 	port := listenPort()
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	bind := os.Getenv("CTF_BIND")
+	if bind == "" {
+		bind = "127.0.0.1"
+	}
+	addr := fmt.Sprintf("%s:%d", bind, port)
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           a.handler(),
@@ -478,7 +528,39 @@ func main() {
 }
 
 func openURL(u string) {
-	_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", u).Start()
+	switch runtime.GOOS {
+	case "windows":
+		_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", u).Start()
+		return
+	case "darwin":
+		_ = exec.Command("open", u).Start()
+		return
+	}
+
+	for _, c := range []string{"cmd.exe", "/mnt/c/Windows/System32/cmd.exe"} {
+		if err := exec.Command(c, "/c", "start", `""`, u).Start(); err == nil {
+			return
+		}
+	}
+	if err := exec.Command("xdg-open", u).Start(); err == nil {
+		return
+	}
+	logf("Buka manual: %s", u)
+}
+
+func appRoot() string {
+	if v := os.Getenv("CTF_ROOT"); v != "" {
+		return v
+	}
+
+	if cwd, err := os.Getwd(); err == nil {
+		if _, err := os.Stat(filepath.Join(cwd, "config.json")); err == nil {
+			if _, err := os.Stat(filepath.Join(cwd, "user.html")); err == nil {
+				return cwd
+			}
+		}
+	}
+	return exeDir()
 }
 
 func exeDir() string {

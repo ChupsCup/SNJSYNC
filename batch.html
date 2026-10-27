@@ -314,7 +314,11 @@ html[data-theme="light"] .bottom-nav{box-shadow:0 4px 24px rgba(0,0,0,.08)}
 
 }
 
+@media(max-width:760px){
+  input[type=text],input[type=search],input[type=password],input[type=number],input[type=email],textarea,select{font-size:16px !important}
+}
 </style>
+<link rel="stylesheet" href="clay.css?v=20261019b">
 </head>
 <body>
 <header class="topbar">
@@ -346,9 +350,13 @@ html[data-theme="light"] .bottom-nav{box-shadow:0 4px 24px rgba(0,0,0,.08)}
     <div class="sec-head">1. Paste daftar dari Excel (2 kolom: product name | item description)</div>
     <textarea id="csvBox" placeholder="SWIFT - LIPS BULK PACK - EST 262&#9;SWIFT - LIPS BULK PACK - 72605 - EST 262&#10;NOLAN - PR CHUCK RIBS SHORT RIBS LP - 4593 - EST 80&#9;PR CHUCK RIBS SHORT RIBS LP"></textarea>
     <div class="hint">Pisah pakai tab, koma, atau semicolon. Kalau cuma 1 kolom, dianggap product name.</div>
-    <div class="rowbtns">
+<div class="rowbtns">
       <button class="primary" id="btnCheck">Periksa ke Index</button>
       <button class="ghost" id="btnExp" disabled>Ekspor Foto Terpilih</button>
+    </div>
+    <div id="checkRow" style="display:none;align-items:center;gap:10px;margin-top:10px">
+      <span id="checkRowText" style="flex:1 1 auto;font-size:12.5px;color:var(--text2)">Memeriksa...</span>
+      <div id="checkRowPac" style="flex:0 0 auto;width:190px;height:34px;line-height:0"></div>
     </div>
   </div>
   <div class="sec" id="secResult" style="display:none">
@@ -461,7 +469,8 @@ document.getElementById('revokeBtn').onclick = async () => {
   } catch (err) { alert('Gagal: ' + err.message); }
 };
 </script>
-<script src="batch.js"></script>
+<script src="pm.js"></script>
+<script src="batch.js?v=20261009"></script>
 <script src="/account.js?v=20261006"></script>
 </body>
 </html>

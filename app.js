@@ -7,7 +7,6 @@ let lastData = null, terms = [], folderFilter = null, visibleCount = 10;
 let modalArr = [], modalIdx = -1, toastTimer = null, searchSeq = 0;
 let gdriveOk = false;
 let readyData = null;      
-let driveData = null;      
 let panelShown = false;
 
 function fmtWaktu(ms) {
@@ -103,7 +102,7 @@ function makeCard(r, arr) {
     '<div class="thumbbox">' +
     '<div class="fbadge">' + esc((r.dir.split(/[\\/]/).filter(Boolean).pop() || '').slice(0, 26)) + '</div>' +
     (bcLen ? '<div class="bcbadge">Barcode ' + bcLen + '</div>' : '') +
-    '<img class="thumb" loading="lazy" src="' + photoUrl(r.id) + '">' +
+    '<img class="thumb" loading="lazy" decoding="async" src="' + photoUrl(r.id) + '">' +
     '</div>' +
     '<div class="meta">' +
     '<div class="fname">' + esc(r.name) + '</div>' +
@@ -126,24 +125,9 @@ function hidePanel() {
 function renderReady() {
   const st = readyData;
   if (!st) { hidePanel(); return; }
-  const dv = driveData || {};
   const total = st.total || 0;
   const ocr = st.withOcr || 0;
   const ratio = total ? Math.round((ocr / total) * 100) : 0;
-
-  let driveCls = 'good', driveTitle = 'Google Drive terhubung', driveBody = '';
-  if (!dv.configured) {
-    driveCls = 'bad';
-    driveTitle = 'client_secret.json belum ada';
-    driveBody = 'Unggah client_secret.json lewat menu ekspor, lalu hubungkan Drive.';
-  } else if (!dv.authorized) {
-    driveCls = 'bad';
-    driveTitle = 'Google Drive belum terhubung';
-    driveBody = 'Token Google kedaluwarsa. Klik tombol di bawah untuk login ulang.';
-  } else {
-    driveBody = 'Terhubung sebagai <b>' + esc(dv.email || 'akun Google') + '</b>. ' +
-      'Terakhir sinkron daftar foto: <b>' + fmtWaktu(st.photosSavedAt) + '</b>.';
-  }
 
   let ocrCls = 'good';
   let ocrNote = '';
@@ -162,17 +146,8 @@ function renderReady() {
 
   const cards = [];
 
-  cards.push(
-    '<div class="rd ' + driveCls + '">' +
-      '<div class="rd-h"><span class="dot"></span>' + driveTitle + '</div>' +
-      '<div class="rd-note">' + driveBody +
-        (driveCls === 'bad' ? ' <button class="ghost" id="rdConnect">Hubungkan sekarang</button>' : '') +
-      '</div>' +
-    '</div>'
-  );
 
-  // Daftar akar folder bisa lebih dari satu, jadi ditampilkan per baris
-  // beserta ID-nya — bukan disatukan jadi satu teks yang tidak jelas.
+
   const roots = (st.photosFolders && st.photosFolders.length)
     ? st.photosFolders
     : (st.photosFolderId ? [{ id: st.photosFolderId, name: st.photosFolderName }] : []);
@@ -240,8 +215,6 @@ function renderReady() {
   stamp.textContent = 'build 20261003a · panel status v2';
   panelEl.appendChild(stamp);
 
-  const c = $('rdConnect');
-  if (c) c.onclick = () => { const e = $('mExport'); if (e) e.click(); };
   panelEl.querySelectorAll('.chip[data-dir]').forEach((ch) => {
     ch.onclick = () => {
       searchInput.value = ch.dataset.dir;
@@ -265,9 +238,9 @@ function render() {
     gridEl.innerHTML = '<div class="empty"><b>Tidak ada foto yang cocok.</b></div>';
     return;
   }
-  // Kalau tidak ada yang cocok semua kata, tampilkan foto terdekat (partial)
-  // dengan label jelas. Dulu panel admin tidak pernah me-render partial sama
-  // sekali, jadi hasilnya terlihat kosong padahal server menemukan foto.
+
+
+
   const showPartial = !exact.length;
   const arr = showPartial ? partial : exact;
   if (showPartial) {
@@ -298,7 +271,7 @@ function render() {
 async function doSearch(silent) {
   const q = searchInput.value.trim();
   if (!q) {
-    // Tanpa query: tampilkan panel kesiapan data, jangan panggil API search.
+
     lastData = null;
     renderReady();
     return;
@@ -313,9 +286,9 @@ async function doSearch(silent) {
     terms = (data.groups || []).flatMap((g) => g.any);
     folderFilter = null;
     visibleCount = silent ? 10 : 60;
-    // /api/stats mesti dihitung dari puluhan ribu foto + ribuan folder.
-    // Dulu dipanggil SETIAP pencarian (termasuk tiap ketikan setelah debounce),
-    // sekarang hasilnya dipakai ulang selama masih segar.
+
+
+
     const st = await loadStats();
     renderChips(st ? (st.dirs || []).map((d) => d.dir) : []);
     render();
@@ -415,7 +388,7 @@ document.addEventListener('mousemove', (e) => {
 document.addEventListener('mouseup', () => { fsDrag = false; });
 
 
-/* ===== gdrive / exp modal ===== */
+
 const expModal = $('expModal'), expStatus = $('expStatus');
 const expFolder = $('expFolder'), expRun = $('expRun'), expResult = $('expResult');
 let authPoller = null, pendingExportIds = null;
@@ -434,24 +407,15 @@ async function loadFolders() {
   } catch (err) { expStatus.textContent = 'Error: ' + err.message; }
 }
 
-/* ============================================================
-   Pilih folder foto — mode MULTI (bisa banyak induk folder).
 
-   Pilihan user disimpan sebagai daftar kerja `picked` ({id,name}).
-   Yang tampil digabung dari dua sumber:
-     1. folder yang sudah dipilih  -> selalu di atas, walau tidak ada di
-        hasil pencarian (supaya tidak "hilang" begitu pencarian diketik)
-     2. hasil pencarian folder     -> untuk nambah yang baru
-   Jadi menambah dan menghapus sama-sama jalan tanpa kehilangan pilihan lama.
-   ============================================================ */
 let pickMode = false;
-let picked = [];   // pilihan kerja (belum tentu tersimpan)
+let picked = [];   
 
 function renderPickList(files) {
   const box = $('pickList');
   const chosen = picked.slice();
   const chosenIds = new Set(chosen.map((f) => f.id));
-  // hasil pencarian, buang yang sudah ke-centang
+
   const sisa = files.filter((f) => f.id && !chosenIds.has(f.id));
   const rows = [];
   chosen.forEach((f, i) => rows.push(pickRow(f, true, i)));
@@ -472,7 +436,7 @@ function pickRow(f, tercentang, i) {
 }
 
 function readPickBoxes() {
-  // centang yang ada sekarang dipakai sebagai pilihan kerja terbaru
+
   const boxes = Array.from($('pickList').querySelectorAll('input[type=checkbox]'));
   if (!boxes.length) return;
   picked = boxes
@@ -584,14 +548,14 @@ if (_reconnectBtn) {
   console.warn('authReconnect button not found');
 }
 
-/* tombol pilih folder foto (multi) */
+
 $('pickBtn').onclick = async () => {
   if (!(await ensureAuth())) return;
   pickMode = true;
   $('expTitle').textContent = 'Pilih Folder Foto';
   pendingExportIds = 'pick';
   expResult.innerHTML = ''; expResult.className = '';
-  // Muat pilihan yang sudah tersimpan supaya centang lama tidak hilang.
+
   try {
     const s = await (await fetch('/api/gdrive/status')).json();
     picked = (s.photosFolders && s.photosFolders.length)
@@ -608,7 +572,7 @@ $('pickBtn').onclick = async () => {
   updatePickCount();
 };
 
-/* tombol ambil index */
+
 $('idxBtn').onclick = async () => {
   if (!(await ensureAuth())) return;
   $('idxBtn').disabled = true;
@@ -629,7 +593,7 @@ $('idxBtn').onclick = async () => {
   $('idxBtn').disabled = false;
 };
 
-/* expRun: dua mode (pilih folder vs ekspor) */
+
 expRun.onclick = async () => {
   if (pendingExportIds === 'pick') {
     readPickBoxes();
@@ -650,7 +614,7 @@ expRun.onclick = async () => {
         '.<br>Klik <b>"Sinkron Foto"</b> untuk memindai semua isi folder ini.';
       toast(n + ' folder foto disimpan', 'ok');
       picked = (d.photosFolders || picked);
-      statsAt = 0; // folder sumber berubah -> stats harus dihitung ulang
+      statsAt = 0; 
       if (typeof renderReady === 'function' && panelShown) renderReady();
     } catch (err) {
       expResult.className = 'fail';
@@ -687,7 +651,7 @@ expRun.onclick = async () => {
 function openExport(items) {
   $('expTitle').textContent = 'Ekspor ke Google Drive';
   pendingExportIds = items;
-  pickMode = false;              // mode ini pakai select tunggal (folder tujuan ekspor)
+  pickMode = false;              
   $('pickWrap').style.display = 'none';
   $('pickSelRow').style.display = '';
   expResult.innerHTML = ''; expResult.className = '';
@@ -698,9 +662,8 @@ function openExport(items) {
 
 async function refreshGdriveStatus() {
   try {
-    const g = await (await fetch('/api/gdrive/status')).json();
-    driveData = g;
-    gdriveOk = g.configured && g.authorized;
+const g = await (await fetch('/api/gdrive/status')).json();
+  gdriveOk = g.configured && g.authorized;
     gdot.className = 'gdot ' + (g.authorized ? 'on' : (g.configured ? 'off' : ''));
     if (!gdriveOk) showAuthBanner(); else hideAuthBanner();
     if (panelShown) renderReady();
@@ -721,14 +684,14 @@ async function checkSuperAdmin() {
 }
 
 (async () => {
-  // Semua request halaman pertama jalan bareng. Sebelumnya berurutan, jadi
-  // modul sempat tampil kosong sambil nunggu /api/gdrive/status.
+
+
   await Promise.all([refreshGdriveStatus(), loadStats(true)]);
   setInterval(refreshGdriveStatus, 30000);
   doSearch(true);
   checkSuperAdmin();
 
-/* tombol putus koneksi drive (ganti akun) */
+
 $('revokeBtn').onclick = async () => {
   if (!confirm('Putus koneksi Google Drive?\n\nIni akan menghapus token tersimpan.\nKemudian bisa hubungkan akun Google lain lewat menu Ekspor.')) return;
   try {

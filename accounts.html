@@ -47,6 +47,30 @@ main{width:100%;margin:0 auto;padding:16px 20px}
 .badge.admin{background:color-mix(in srgb, var(--text2) 16%, transparent);color:var(--text2)}
 .badge.you{background:color-mix(in srgb, var(--green) 16%, transparent);color:var(--green)}
 .badge.live{background:color-mix(in srgb, var(--green) 14%, transparent);color:var(--green)}
+.badge.aktif{background:color-mix(in srgb, var(--green) 16%, transparent);color:var(--green)}
+.badge.jarang{background:color-mix(in srgb, var(--yellow) 18%, transparent);color:var(--yellow)}
+.badge.mati{background:color-mix(in srgb, var(--red) 16%, transparent);color:var(--red)}
+.badge.belum{background:color-mix(in srgb, var(--text2) 16%, transparent);color:var(--text2)}
+
+.filters{display:grid;grid-template-columns:200px 220px 1fr;gap:10px;align-items:end;margin-bottom:12px}
+.fstat{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;padding-bottom:2px}
+
+.ovl{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:18px}
+html[data-theme="light"] .ovl{background:rgba(20,20,25,.35)}
+.ovl[hidden]{display:none}
+.modal{width:min(680px,100%);background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.5);max-height:90vh;overflow:auto}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.modal-title{font-size:15px;font-weight:700}
+.modal-sub{font-size:11.5px;color:var(--text2);margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.act-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.act-stat{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+.act-stat .n{font-size:20px;font-weight:800;line-height:1.1}
+.act-stat .l{font-size:10.5px;color:var(--text2);margin-top:3px}
+.chart{display:flex;align-items:flex-end;gap:3px;height:150px;padding:0 4px 0;border-bottom:1px solid var(--border)}
+.bar{flex:1;min-width:3px;background:color-mix(in srgb, var(--accent) 72%, transparent);border-radius:3px 3px 0 0;transition:background-color .15s}
+.bar:hover{background:var(--accent)}
+.bar.zero{background:color-mix(in srgb, var(--text2) 22%, transparent)}
+.chart-x{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text2);margin-top:6px}
 
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:10px}
 label{display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:5px}
@@ -85,6 +109,12 @@ tbody tr:last-child td{border-bottom:none}
 
 .empty{padding:22px;text-align:center;color:var(--text2);font-size:12.5px}
 
+.mods{display:flex;gap:16px;flex-wrap:wrap;padding:2px 0}
+.mod{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text);font-weight:500;margin:0;cursor:pointer}
+.mod input{width:auto;padding:0;margin:0;accent-color:var(--accent);cursor:pointer}
+.mod-badges{display:flex;gap:4px;flex-wrap:wrap}
+.mod-badges .badge{font-size:10px;padding:2px 7px;border-radius:999px;background:color-mix(in srgb, var(--accent) 14%, transparent);color:var(--accent)}
+
 .msg{display:none;margin-top:10px;padding:10px 12px;border-radius:10px;font-size:12px;border:1px solid transparent}
 .msg.ok{display:block;background:color-mix(in srgb, var(--green) 12%, transparent);border-color:color-mix(in srgb, var(--green) 35%, transparent);color:var(--green)}
 .msg.err{display:block;background:color-mix(in srgb, var(--red) 12%, transparent);border-color:color-mix(in srgb, var(--red) 35%, transparent);color:var(--red)}
@@ -112,8 +142,14 @@ html[data-theme="light"] .bottom-nav{box-shadow:0 4px 24px rgba(0,0,0,.08)}
   .nav-item{width:36px;height:36px}.nav-item svg{width:16px;height:16px}
   .bottom-nav{bottom:10px}
   .grid{grid-template-columns:1fr}
+  .filters{grid-template-columns:1fr}
+  .act-summary{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:760px){
+  input[type=text],input[type=search],input[type=password],input[type=number],input[type=email],textarea,select{font-size:16px !important}
 }
 </style>
+<link rel="stylesheet" href="clay.css?v=20261019b">
 </head>
 <body>
 
@@ -152,12 +188,21 @@ html[data-theme="light"] .bottom-nav{box-shadow:0 4px 24px rgba(0,0,0,.08)}
       <div>
         <label for="cRole">Role</label>
         <select id="cRole">
+          <option value="user">User</option>
           <option value="admin">Admin</option>
           <option value="superadmin">Super Admin</option>
         </select>
       </div>
       <div style="display:flex;align-items:flex-end">
         <button class="primary" id="btnCreate">Buat Akun</button>
+      </div>
+      <div style="grid-column:1/-1" id="cModWrap">
+        <label>Modul yang boleh diakses (role User)</label>
+        <div class="mods">
+          <label class="mod"><input type="checkbox" class="cMod" value="ctf"> Cari Foto</label>
+          <label class="mod"><input type="checkbox" class="cMod" value="mc"> Master Item</label>
+          <label class="mod"><input type="checkbox" class="cMod" value="mmd"> Masterlist</label>
+        </div>
       </div>
     </div>
     <div class="msg" id="cMsg"></div>
@@ -167,21 +212,42 @@ html[data-theme="light"] .bottom-nav{box-shadow:0 4px 24px rgba(0,0,0,.08)}
   
   <div class="sec">
     <div class="sec-head">2. Daftar Akun</div>
-    <div class="sec-desc">Ubah username / password / role, atau hapus akun. Setiap perubahan otomatis mengeluarkan akun tersebut dari semua browser.</div>
+    <div class="sec-desc">Ubah username / password / role, atau hapus akun. Setiap perubahan otomatis mengeluarkan akun tersebut dari semua browser. Kategori keaktifan dihitung dari kapan akun terakhir dipakai.</div>
+    <div class="filters">
+      <div>
+        <label for="fStatus">Filter keaktifan</label>
+        <select id="fStatus">
+          <option value="">Semua akun</option>
+          <option value="aktif">Aktif (&le;7 hari)</option>
+          <option value="jarang">Jarang (8&ndash;30 hari)</option>
+          <option value="mati">Tidak aktif (&gt;30 hari)</option>
+          <option value="belum">Belum pernah dipakai</option>
+        </select>
+      </div>
+      <div>
+        <label for="fSort">Urutkan</label>
+        <select id="fSort">
+          <option value="role">Peran</option>
+          <option value="idle">Paling lama tidak dipakai</option>
+        </select>
+      </div>
+      <div class="fstat" id="fStat"></div>
+    </div>
     <div class="tblbox">
       <table>
         <thead>
           <tr>
             <th>Username</th>
             <th>Role</th>
-            <th>Dibuat</th>
-            <th>Login Terakhir</th>
+            <th>Modul</th>
+            <th>Keaktifan</th>
+            <th>Terakhir Dipakai</th>
             <th>Sesi Aktif</th>
             <th style="text-align:right">Aksi</th>
           </tr>
         </thead>
         <tbody id="rows">
-          <tr><td colspan="6" class="empty">Memuat...</td></tr>
+          <tr><td colspan="7" class="empty">Memuat...</td></tr>
         </tbody>
       </table>
     </div>
@@ -209,6 +275,7 @@ html[data-theme="light"] .bottom-nav{box-shadow:0 4px 24px rgba(0,0,0,.08)}
       <div>
         <label for="eRole">Role</label>
         <select id="eRole">
+          <option value="user">User</option>
           <option value="admin">Admin</option>
           <option value="superadmin">Super Admin</option>
         </select>
@@ -217,18 +284,41 @@ html[data-theme="light"] .bottom-nav{box-shadow:0 4px 24px rgba(0,0,0,.08)}
         <button class="primary" id="btnSave" disabled>Simpan Perubahan</button>
         <button class="ghost" id="btnCancel" hidden>Batal</button>
       </div>
+      <div style="grid-column:1/-1" id="eModWrap">
+        <label>Modul yang boleh diakses (role User)</label>
+        <div class="mods">
+          <label class="mod"><input type="checkbox" class="eMod" value="ctf"> Cari Foto</label>
+          <label class="mod"><input type="checkbox" class="eMod" value="mc"> Master Item</label>
+          <label class="mod"><input type="checkbox" class="eMod" value="mmd"> Masterlist</label>
+        </div>
+      </div>
     </div>
     <div class="msg" id="eMsg"></div>
   </div>
 
 </main>
 
+<div class="ovl" id="actOvl" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="actTitle">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="actTitle">Aktivitas Login</div>
+        <div class="modal-sub" id="actSub"></div>
+      </div>
+      <button class="ghost" id="actClose">Tutup</button>
+    </div>
+    <div class="act-summary" id="actSum"></div>
+    <div class="chart" id="actChart"></div>
+    <div class="chart-x"><span>30 hari lalu</span><span>hari ini</span></div>
+  </div>
+</div>
+
 <nav class="bottom-nav">
   <a class="nav-item" href="dashboard.html" title="Dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></a>
   
 </nav>
 
-<script src="/accounts.js?v=20261006"></script>
+<script src="/accounts.js?v=20261015"></script>
 <script src="/account.js?v=20261006"></script>
 </body>
 </html>

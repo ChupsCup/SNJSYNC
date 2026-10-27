@@ -724,19 +724,26 @@ func (a *App) reviewAction(w http.ResponseWriter, r *http.Request, confirm bool)
 		}
 	}
 
-	dKey := normStr(target.Brand) + "|" + normStr(target.NamaItem)
-	if confirm {
-		_, _ = db.Exec(
-			`INSERT INTO review_decisions (key, brand, nama_item, decision, master_code, master_desc, hits)
-			 VALUES ($1,$2,$3,'link',$4,$5,1)
-			 ON CONFLICT(key) DO UPDATE SET decision='link', master_code=excluded.master_code,
-			   master_desc=excluded.master_desc, hits=review_decisions.hits+$6`,
-			dKey, target.Brand, target.NamaItem, candCode, candDescOrCode, len(idx))
-	} else {
-		_, _ = db.Exec(
-			`INSERT INTO review_decisions (key, brand, nama_item, decision, hits) VALUES ($1,$2,$3,'new',1)
-			 ON CONFLICT(key) DO UPDATE SET decision='new', hits=review_decisions.hits+$4`,
-			dKey, target.Brand, target.NamaItem, len(idx))
+	dKeyRaw := normStr(target.Brand) + "|" + normStr(target.NamaItem)
+	dKeyNorm := normStr(target.Brand) + "|" + normStr(normME(normVL(plur(target.NamaItem))))
+	keysToSave := []string{dKeyRaw}
+	if dKeyNorm != "" && dKeyNorm != dKeyRaw {
+		keysToSave = append(keysToSave, dKeyNorm)
+	}
+	for _, k := range keysToSave {
+		if confirm {
+			_, _ = db.Exec(
+				`INSERT INTO review_decisions (key, brand, nama_item, decision, master_code, master_desc, hits)
+				 VALUES ($1,$2,$3,'link',$4,$5,1)
+				 ON CONFLICT(key) DO UPDATE SET decision='link', master_code=excluded.master_code,
+				   master_desc=excluded.master_desc, hits=review_decisions.hits+$6`,
+				k, target.Brand, target.NamaItem, candCode, candDescOrCode, len(idx))
+		} else {
+			_, _ = db.Exec(
+				`INSERT INTO review_decisions (key, brand, nama_item, decision, hits) VALUES ($1,$2,$3,'new',1)
+				 ON CONFLICT(key) DO UPDATE SET decision='new', hits=review_decisions.hits+$4`,
+				k, target.Brand, target.NamaItem, len(idx))
+		}
 	}
 	exist, review, err := a.saveReviewResults(db, p.ResultID, results)
 	if err != nil {

@@ -2,6 +2,7 @@
 snjsync.exe
 snjsync.exe~
 snjsync_new.exe
+snjsync_linux
 
 # Log runtime
 *.log
@@ -17,6 +18,7 @@ client_secret.json
 config.json
 .env
 .env.*
+!.env.example
 
 # File sementara editor / OS
 *.tmp

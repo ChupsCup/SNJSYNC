@@ -83,7 +83,7 @@ button.ghost:hover{background:color-mix(in srgb, var(--accent) 10%, transparent)
 
 button.ghost:disabled{opacity:.4;cursor:default;pointer-events:none}
 
-.prog{margin-top:12px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.prog{margin-top:12px;padding:0}
 
 .prog-bar{background:var(--border);border-radius:6px;height:6px;overflow:hidden;margin-top:6px}
 
@@ -218,7 +218,11 @@ html[data-theme="light"] .bottom-nav{box-shadow:0 4px 24px rgba(0,0,0,.08)}
 }
 
 
+@media(max-width:760px){
+  input[type=text],input[type=search],input[type=password],input[type=number],input[type=email],textarea,select{font-size:16px !important}
+}
 </style>
+<link rel="stylesheet" href="clay.css?v=20261019b">
 </head>
 <body>
 <header class="topbar"><div class="inner"><div class="brand">
@@ -316,9 +320,8 @@ html[data-theme="light"] .bottom-nav{box-shadow:0 4px 24px rgba(0,0,0,.08)}
     </button>
     <span id="saveMcNote" style="font-size:11px;color:var(--text2)"></span>
   </div>
-    <div class="prog" id="prog" style="display:none">
-      <div style="font-size:12px;font-weight:600">Memproses: <span id="pct">0%</span></div>
-      <div class="prog-bar"><div class="prog-fill" id="bar"></div></div>
+<div class="prog" id="prog" style="display:none">
+      <div id="pmClean" style="width:100%;max-width:400px"></div>
       <div class="prog-msg" id="msg">Menyiapkan...</div>
     </div>
     <div id="status"></div>
@@ -440,7 +443,12 @@ $('btnSaveMC').addEventListener('click', async () => {
   btn.disabled = true;
   const old = btn.textContent;
   btn.textContent = 'Menyimpan...';
-  note.innerHTML = 'Menyimpan ' + bersih.name + ' ke database...';
+  note.textContent = 'Menyimpan ' + bersih.name + ' ke database...';
+  const progEl = $('prog');
+  progEl.style.display = 'block';
+  if (pmCleanCtl) { pmCleanCtl.destroy(); pmCleanCtl = null; }
+  pmCleanCtl = Pm.create($('pmClean'), { height: 38, spin: true });
+  $('msg').textContent = 'Menyimpan ' + bersih.name + ' ke database...';
   try {
     const fd = new FormData();
     fd.append('bersih', bersih.blob, bersih.name);
@@ -469,6 +477,8 @@ $('btnSaveMC').addEventListener('click', async () => {
     note.innerHTML = '<span style="color:var(--red)">Gagal: ' + e.message + '</span>';
     toast('Gagal menyimpan MMD', 0);
   } finally {
+    if (pmCleanCtl) { pmCleanCtl.destroy(); pmCleanCtl = null; }
+    progEl.style.display = 'none';
     btn.textContent = old;
     btn.disabled = false;
   }
@@ -502,16 +512,19 @@ $('btnProcess').addEventListener('click', () => {
   process(fd);
 });
 
+let pmCleanCtl = null;
+
 function setProg(pct, msg, ok) {
   $('prog').style.display = 'block';
-  $('pct').textContent = pct + '%';
-  $('bar').style.width = pct + '%';
-  $('bar').className = 'prog-fill' + (ok ? ' ok' : '');
+  if (!pmCleanCtl) pmCleanCtl = Pm.create($('pmClean'), { height: 38 });
+  pmCleanCtl.set(pct / 100);
   $('msg').textContent = msg;
+  if (ok) pmCleanCtl.done();
 }
 
 async function process(fd) {
   $('btnProcess').disabled = true;
+  if (pmCleanCtl) { pmCleanCtl.destroy(); pmCleanCtl = null; }
   setProg(8, 'Upload & proses...');
   try {
     const res = await fetch('/api/clean/process', { method: 'POST', body: fd });
@@ -740,6 +753,7 @@ function toast(msg, ok) {
   await loadPedoman();
 })();
 </script>
+<script src="/pm.js?v=1"></script>
 <script src="/account.js?v=20261006"></script>
 </body>
 </html>

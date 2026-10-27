@@ -51,16 +51,19 @@ func nullInt(ni sql.NullInt64) int {
 }
 
 func (a *App) loadApprovedMaster() []mlItem {
+
 	if a.db == nil {
 		return nil
 	}
 	ctx, cancel := ctxTimeout(120 * time.Second)
 	defer cancel()
-	rows, err := a.db.QueryContext(ctx, `SELECT m.id, m.upload_id, m.no_container, m.brand, m.nama_item,
-		m.item_code, m.item_desc, m.gabungan, m.importir
-		FROM masterlist_items m
-		JOIN masterlist_uploads u ON u.id = m.upload_id
-		WHERE u.status = 'done' ORDER BY m.id`)
+	// Load semua kolom yang dibutuhkan engine untuk matching:
+	// - nama_mentah: nama item dari file bersih (lebih bersih dari deskripsi)
+	// - potongan_utama: nama potongan utama (misal "NECK TRIM")
+	// - potongan_spesifik: deskripsi lengkap termasuk spesifikasi (dipakai sebagai Gabungan)
+	rows, err := a.db.QueryContext(ctx, `SELECT id, item_code, deskripsi,
+		COALESCE(nama_mentah,''), COALESCE(potongan_utama,''), COALESCE(potongan_spesifik,'')
+		FROM mmd_items WHERE bersih ORDER BY id`)
 	if err != nil {
 		logf("MC master query: %v", err)
 		return nil
@@ -69,12 +72,30 @@ func (a *App) loadApprovedMaster() []mlItem {
 	var out []mlItem
 	for rows.Next() {
 		var m mlItem
-		var noC, brand, nama, code, desc, gab, imp sql.NullString
-		if err := rows.Scan(&m.ID, &m.UploadID, &noC, &brand, &nama, &code, &desc, &gab, &imp); err != nil {
+		var code, desc, namaMentah, potUtama, potSpesifik sql.NullString
+		if err := rows.Scan(&m.ID, &code, &desc, &namaMentah, &potUtama, &potSpesifik); err != nil {
 			continue
 		}
-		m.NoContainer, m.Brand, m.NamaItem = nullStr(noC), nullStr(brand), nullStr(nama)
-		m.ItemCode, m.ItemDesc, m.Gabungan, m.Importir = nullStr(code), nullStr(desc), nullStr(gab), nullStr(imp)
+		m.ItemCode = nullStr(code)
+		m.ItemDesc = nullStr(desc)
+
+		// NamaItem: gunakan nama_mentah jika ada, atau ekstrak dari deskripsi
+		nm := nullStr(namaMentah)
+		if nm != "" {
+			m.NamaItem = nm
+		} else {
+			m.NamaItem = cutNameFromDesc(m.ItemDesc)
+		}
+
+		// Gabungan: gunakan potongan_spesifik (berisi deskripsi lengkap+spesifikasi)
+		// sebagai "gabungan" agar token index mencakup semua kata kunci potongan
+		ps := nullStr(potSpesifik)
+		if ps != "" {
+			m.Gabungan = ps
+		} else if pu := nullStr(potUtama); pu != "" {
+			m.Gabungan = pu
+		}
+
 		out = append(out, m)
 	}
 	return out
@@ -211,10 +232,12 @@ func (a *App) runCompare(payload comparePayload, fallbackRows []plItem) (*compar
 
 	approved := a.loadApprovedMaster()
 	if len(approved) == 0 {
-		return nil, fmt.Errorf("Belum ada masterlist ter-upload! Upload masterlist dulu sebelum compare.")
+		return nil, fmt.Errorf("Belum ada data Masterlist (MMD). Upload masterlist di halaman user dulu sebelum compare.")
 	}
 
 	eng := newCompareEngine()
+	eng.aliases = newAliasRules(a.loadMcAliases())
+	eng.ignores = newIgnoreWords(a.loadMcIgnores())
 	eng.build(approved, a.loadDecisions())
 
 	results := make([]compareRow, 0, len(packingRows))

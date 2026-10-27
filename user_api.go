@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -172,6 +173,22 @@ func (a *App) mmdSaveAPI(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+
+
+
+
+
+	dipensiun := 0
+	if baru+diperbarui > 0 {
+		if res, err := db.ExecContext(ctx,
+			`UPDATE mmd_items SET bersih = FALSE
+			  WHERE bersih AND upload_id IS DISTINCT FROM $1`, uploadID); err != nil {
+			logf("MMD pensiun baris lama: %v", err)
+		} else if n, _ := res.RowsAffected(); n > 0 {
+			dipensiun = int(n)
+		}
+	}
+
 	if err := simpanRevisiMMD(ctx, db, daftarRevisi, fp.filename); err != nil {
 		logf("MMD riwayat revisi: %v", err)
 	}
@@ -185,6 +202,9 @@ func (a *App) mmdSaveAPI(w http.ResponseWriter, r *http.Request) {
 
 	pesan := fmt.Sprintf("%d item baru disimpan, %d data diperbarui, %d revisi deskripsi, %d gagal. Total di database: %d.",
 		baru, diperbarui, len(daftarRevisi), duplikat, totalDB)
+	if dipensiun > 0 {
+		pesan += fmt.Sprintf(" %d item lama yang sudah tidak ada di file ini dipensiunkan.", dipensiun)
+	}
 	if fpMentah == nil {
 		pesan += " (file mentah tidak dikirim, potongan diambil dari deskripsi)"
 	}
@@ -348,30 +368,7 @@ func (a *App) userMasterItems(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	lq := strings.ToLower(q)
-	filtered := make([]plCompareRow, 0, len(list))
-	for _, it := range list {
-
-		if strings.HasSuffix(it.NoContainer, "TOTAL") && it.NamaItem == "" {
-			continue
-		}
-		if status == "EXISTING" && it.Flag != "EXISTING" {
-			continue
-		}
-		if status == "NEW" && it.Flag != "NEW ITEM" {
-			continue
-		}
-		if imp != "" && it.Importir != imp {
-			continue
-		}
-		if sheet != "" && it.Sheet != sheet {
-			continue
-		}
-		if lq != "" && !plRowMatch(it, lq) {
-			continue
-		}
-		filtered = append(filtered, it)
-	}
+	filtered := filterPLRows(list, q, status, imp, sheet)
 
 	total := len(filtered)
 	off := (page - 1) * limit
@@ -403,13 +400,53 @@ func (a *App) userMasterItems(w http.ResponseWriter, r *http.Request) {
 }
 
 func plRowMatch(it plCompareRow, lq string) bool {
-	for _, f := range []string{it.NoContainer, it.Brand, it.NamaItem, it.Importir,
-		it.Sheet, it.Flag, it.MasterCode, it.MasterDesc, it.Note} {
-		if f != "" && strings.Contains(strings.ToLower(f), lq) {
-			return true
+
+
+
+
+	for _, t := range splitFields(strings.ToLower(lq), func(r rune) bool { return r == ' ' || r == '\t' }) {
+		found := false
+		for _, f := range []string{it.NoContainer, it.Brand, it.NamaItem, it.Importir,
+			it.Sheet, it.Flag, it.MasterCode, it.MasterDesc, it.Note} {
+			if f != "" && strings.Contains(strings.ToLower(f), t) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
 		}
 	}
-	return false
+	return true
+}
+
+
+
+func filterPLRows(list []plCompareRow, q, status, imp, sheet string) []plCompareRow {
+	lq := strings.ToLower(q)
+	out := make([]plCompareRow, 0, len(list))
+	for _, it := range list {
+		if strings.HasSuffix(it.NoContainer, "TOTAL") && it.NamaItem == "" {
+			continue
+		}
+		if status == "EXISTING" && it.Flag != "EXISTING" {
+			continue
+		}
+		if status == "NEW" && it.Flag != "NEW ITEM" {
+			continue
+		}
+		if imp != "" && it.Importir != imp {
+			continue
+		}
+		if sheet != "" && it.Sheet != sheet {
+			continue
+		}
+		if lq != "" && !plRowMatch(it, lq) {
+			continue
+		}
+		out = append(out, it)
+	}
+	return out
 }
 
 func derefS(p *string) string {
@@ -433,13 +470,15 @@ func (a *App) userMMDItems(w http.ResponseWriter, r *http.Request) {
 	where := []string{"bersih = TRUE"}
 	args := []any{}
 	if q != "" {
-		args = append(args, "%"+strings.ToLower(q)+"%")
-		i := len(args)
-		where = append(where, fmt.Sprintf(
-			`(lower(deskripsi) LIKE $%d OR lower(item_code) LIKE $%d
-			  OR lower(potongan_utama) LIKE $%d OR lower(potongan_spesifik) LIKE $%d
-			  OR lower(kategori) LIKE $%d)`,
-			i, i, i, i, i))
+		cols := `lower(COALESCE(deskripsi,'')||' '||COALESCE(item_code,'')||' '||COALESCE(potongan_utama,'')||' '||COALESCE(potongan_spesifik,'')||' '||COALESCE(kategori,''))`
+		for _, t := range splitFields(strings.ToLower(q), func(r rune) bool { return r == ' ' || r == '\t' }) {
+			if t == "" {
+				continue
+			}
+			args = append(args, "%"+t+"%")
+			i := len(args)
+			where = append(where, cols+` LIKE $`+itoa(i))
+		}
 	}
 	if kategori != "" {
 		args = append(args, strings.ToUpper(kategori))
@@ -529,9 +568,22 @@ func (a *App) userMMDMeta(w http.ResponseWriter, r *http.Request) {
 	var total, aktif int
 	db.QueryRow(`SELECT COUNT(*) FROM mmd_items WHERE bersih`).Scan(&total)
 	db.QueryRow(`SELECT COUNT(*) FROM mmd_items WHERE bersih AND status_aktif=1`).Scan(&aktif)
+
+	var namaFile string
+	var diupload time.Time
+	cutoff := ""
+	if err := db.QueryRow(
+		`SELECT filename, uploaded_at FROM mmd_uploads ORDER BY id DESC LIMIT 1`,
+	).Scan(&namaFile, &diupload); err == nil {
+		cutoff = cutOffDariNama(namaFile, diupload.Year())
+		if cutoff == "" && !diupload.IsZero() {
+			cutoff = formatTanggalCutOff(diupload.Local())
+		}
+	}
 	sendJSON(w, 200, map[string]any{
 		"kategori": kategori, "tanggal": tanggal,
 		"total": total, "aktif": aktif,
+		"cutoff": cutoff, "filename": namaFile,
 	})
 }
 
@@ -547,6 +599,10 @@ func (a *App) userExportML(w http.ResponseWriter, r *http.Request) {
 	if db == nil {
 		return
 	}
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	status := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("status")))
+	imp := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("importir")))
+	sheetFilter := strings.TrimSpace(r.URL.Query().Get("sheet"))
 	cid := latestCompareResultID(db, atoiSafe(r.URL.Query().Get("compareId"), 0))
 	if cid == 0 {
 		sendErr(w, 404, "Belum ada hasil compare Masterlist Compare.")
@@ -557,22 +613,64 @@ func (a *App) userExportML(w http.ResponseWriter, r *http.Request) {
 		sendErr(w, 500, err.Error())
 		return
 	}
+	recs := filterPLRows(list, q, status, imp, sheetFilter)
 
 	f := excelize.NewFile()
 	sheet := "Sheet1"
-	hdr := []interface{}{"NO CONTAINER", "BRAND", "NAMA ITEM", "ETA", "IMPORTIR",
+	hdr := []string{"NO CONTAINER", "BRAND", "NAMA ITEM", "ETA", "IMPORTIR",
 		"SHEET", "STATUS", "MASTER ITEM CODE", "MASTER ITEM DESC", "CATATAN"}
-	_ = f.SetSheetRow(sheet, "A1", &hdr)
-	i := 1
-	for _, it := range list {
-		if strings.HasSuffix(it.NoContainer, "TOTAL") && it.NamaItem == "" {
-			continue
-		}
-		vals := []interface{}{it.NoContainer, it.Brand, it.NamaItem, it.ETA,
-			it.Importir, it.Sheet, it.Flag, it.MasterCode, it.MasterDesc, it.Note}
-		_ = f.SetSheetRow(sheet, "A"+itoa(i+1), &vals)
-		i++
+	hdrAny := make([]interface{}, len(hdr))
+	for i, h := range hdr {
+		hdrAny[i] = h
 	}
+	_ = f.SetSheetRow(sheet, "A1", &hdrAny)
+
+	vals := make([][]string, 0, len(recs))
+	for _, it := range recs {
+		row := []string{it.NoContainer, it.Brand, it.NamaItem, it.ETA,
+			it.Importir, it.Sheet, it.Flag, it.MasterCode, it.MasterDesc, it.Note}
+		vals = append(vals, row)
+		rowAny := make([]interface{}, len(row))
+		for i, v := range row {
+			rowAny[i] = v
+		}
+		_ = f.SetSheetRow(sheet, "A"+itoa(len(vals)+1), &rowAny)
+	}
+
+	lastCol := encodeCol(len(hdr) - 1)
+	sty, _ := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true, Color: "FFFFFF", Size: 11},
+		Fill:      excelize.Fill{Type: "pattern", Pattern: 1, Color: []string{"F97316"}},
+		Alignment: &excelize.Alignment{Vertical: "middle"},
+	})
+	if sty != 0 {
+		_ = f.SetCellStyle(sheet, "A1", lastCol+"1", sty)
+	}
+	_ = f.SetPanes(sheet, &excelize.Panes{
+		Freeze: true, Split: false, XSplit: 0, YSplit: 1, TopLeftCell: "A2", ActivePane: "bottomLeft",
+		Selection: []excelize.Selection{{SQRef: "A2", ActiveCell: "A2", Pane: "bottomLeft"}},
+	})
+	_ = f.AutoFilter(sheet, "A1:"+lastCol+itoa(len(vals)+1), nil)
+
+	all := make([][]string, 0, len(vals)+1)
+	all = append(all, hdr)
+	all = append(all, vals...)
+	for c := 0; c < len(hdr); c++ {
+		maxLen := 8
+		for _, rr := range all {
+			if c < len(rr) {
+				if L := len(rr[c]); L > maxLen {
+					if L > 60 {
+						L = 60
+					}
+					maxLen = L
+				}
+			}
+		}
+		cn := encodeCol(c)
+		_ = f.SetColWidth(sheet, cn, cn, float64(maxLen+2))
+	}
+
 	buf, err := f.WriteToBuffer()
 	if err != nil {
 		sendErr(w, 500, err.Error())
@@ -627,12 +725,15 @@ func (a *App) userExportMMD(w http.ResponseWriter, r *http.Request) {
 	where := []string{"bersih = TRUE"}
 	args := []any{}
 	if q != "" {
-		args = append(args, "%"+strings.ToLower(q)+"%")
-		i := len(args)
-		where = append(where, fmt.Sprintf(
-			`(lower(deskripsi) LIKE $%d OR lower(item_code) LIKE $%d
-			  OR lower(potongan_utama) LIKE $%d OR lower(potongan_spesifik) LIKE $%d)`,
-			i, i, i, i))
+		cols := `lower(COALESCE(deskripsi,'')||' '||COALESCE(item_code,'')||' '||COALESCE(potongan_utama,'')||' '||COALESCE(potongan_spesifik,''))`
+		for _, t := range splitFields(strings.ToLower(q), func(r rune) bool { return r == ' ' || r == '\t' }) {
+			if t == "" {
+				continue
+			}
+			args = append(args, "%"+t+"%")
+			i := len(args)
+			where = append(where, cols+` LIKE $`+itoa(i))
+		}
 	}
 	if kategori != "" {
 		args = append(args, strings.ToUpper(kategori))
@@ -654,21 +755,58 @@ func (a *App) userExportMMD(w http.ResponseWriter, r *http.Request) {
 	hdr := []interface{}{"ITEM CODE", "DESKRIPSI", "KATEGORI", "STATUS",
 		"POTONGAN UTAMA", "POTONGAN SPESIFIK"}
 	_ = f.SetSheetRow(sheet, "A1", &hdr)
-	i := 1
+	type rec struct {
+		ic, ds, kat, ut, sp, status string
+	}
+	recs := []rec{}
 	for rows.Next() {
 		var ic, ds, kat, ut, sp *string
 		var aktif int
 		if rows.Scan(&ic, &ds, &kat, &aktif, &ut, &sp) != nil {
 			continue
 		}
-		status := "AKTIF"
+		st := "AKTIF"
 		if aktif == 0 {
-			status = "TIDAK AKTIF"
+			st = "TIDAK AKTIF"
 		}
-		vals := []interface{}{derefS(ic), derefS(ds), derefS(kat),
-			status, derefS(ut), bersihkanPotonganSpesifik(derefS(sp))}
-		_ = f.SetSheetRow(sheet, "A"+itoa(i+1), &vals)
-		i++
+	recs = append(recs, rec{ic: derefS(ic), ds: derefS(ds), kat: derefS(kat), ut: derefS(ut), sp: bersihkanPotonganSpesifik(derefS(sp)), status: st})
+	}
+	for i, r := range recs {
+		vals := []interface{}{r.ic, r.ds, r.kat, r.status, r.ut, r.sp}
+		_ = f.SetSheetRow(sheet, "A"+itoa(i+2), &vals)
+	}
+	sty, _ := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true, Color: "FFFFFF", Size: 11},
+		Fill:      excelize.Fill{Type: "pattern", Pattern: 1, Color: []string{"F97316"}},
+		Alignment: &excelize.Alignment{Vertical: "middle"},
+	})
+	if sty != 0 {
+		_ = f.SetCellStyle(sheet, "A1", "F1", sty)
+	}
+	_ = f.SetPanes(sheet, &excelize.Panes{
+		Freeze: true, Split: false, XSplit: 0, YSplit: 1, TopLeftCell: "A2", ActivePane: "bottomLeft",
+		Selection: []excelize.Selection{{SQRef: "A2", ActiveCell: "A2", Pane: "bottomLeft"}},
+	})
+	lastCol := encodeCol(5)
+	_ = f.AutoFilter(sheet, "A1:"+lastCol+itoa(len(recs)+1), nil)
+	all := make([][]string, 0, len(recs)+1)
+	all = append(all, []string{"ITEM CODE", "DESKRIPSI", "KATEGORI", "STATUS", "POTONGAN UTAMA", "POTONGAN SPESIFIK"})
+	for _, r := range recs {
+		all = append(all, []string{r.ic, r.ds, r.kat, r.status, r.ut, r.sp})
+	}
+	for c := 0; c < 6; c++ {
+		maxLen := 8
+		for _, rr := range all {
+			if c < len(rr) {
+				v := rr[c]
+				if L := len(v); L > maxLen {
+					if L > 60 { L = 60 }
+					maxLen = L
+				}
+			}
+		}
+		cn := encodeCol(c)
+		_ = f.SetColWidth(sheet, cn, cn, float64(maxLen+2))
 	}
 	buf, err := f.WriteToBuffer()
 	if err != nil {
@@ -679,35 +817,88 @@ func (a *App) userExportMMD(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) userSummary(w http.ResponseWriter, r *http.Request) {
+	s := a.requireUser(w, r)
+	if s == nil {
+		return
+	}
 	a.waitReady()
 	out := map[string]any{}
-	out["foto"] = a.stats()
-	if db := a.requireDB(w); db != nil {
-		var ml, mlItem, mmd, mmdAktif, plItem int
-		db.QueryRow(`SELECT COUNT(*) FROM masterlist_uploads WHERE status='done'`).Scan(&ml)
-		db.QueryRow(`SELECT COUNT(*) FROM masterlist_items`).Scan(&mlItem)
-		db.QueryRow(`SELECT COUNT(*) FROM mmd_items WHERE bersih`).Scan(&mmd)
-		db.QueryRow(`SELECT COUNT(*) FROM mmd_items WHERE bersih AND status_aktif=1`).Scan(&mmdAktif)
-
-		if cid := latestCompareResultID(db, 0); cid != 0 {
-			if list, err := scanCompareRows(db, cid); err == nil {
-				for _, it := range list {
-					if strings.HasSuffix(it.NoContainer, "TOTAL") && it.NamaItem == "" {
-						continue
+	if s.canModule(modCTF) {
+		out["foto"] = a.stats()
+	}
+	if db := a.dbHandle(); db != nil {
+		if s.canModule(modMC) {
+			var ml, mlItem, plItem int
+			db.QueryRow(`SELECT COUNT(*) FROM masterlist_uploads WHERE status='done'`).Scan(&ml)
+			db.QueryRow(`SELECT COUNT(*) FROM masterlist_items`).Scan(&mlItem)
+			if cid := latestCompareResultID(db, 0); cid != 0 {
+				if list, err := scanCompareRows(db, cid); err == nil {
+					for _, it := range list {
+						if strings.HasSuffix(it.NoContainer, "TOTAL") && it.NamaItem == "" {
+							continue
+						}
+						plItem++
 					}
-					plItem++
 				}
 			}
+			out["masterlistUpload"] = ml
+			out["mlItem"] = mlItem
+			out["masterItem"] = plItem
 		}
-		out["masterlistUpload"] = ml
-		out["mlItem"] = mlItem
+		if s.canModule(modMMD) {
+			var mmd, mmdAktif int
+			db.QueryRow(`SELECT COUNT(*) FROM mmd_items WHERE bersih`).Scan(&mmd)
+			db.QueryRow(`SELECT COUNT(*) FROM mmd_items WHERE bersih AND status_aktif=1`).Scan(&mmdAktif)
+			out["masterlist"] = mmd
+			out["masterlistAktif"] = mmdAktif
 
-		out["masterItem"] = plItem
 
-		out["masterlist"] = mmd
-		out["masterlistAktif"] = mmdAktif
+
+
+			var namaFile string
+			var diupload time.Time
+			if err := db.QueryRow(
+				`SELECT filename, uploaded_at FROM mmd_uploads ORDER BY id DESC LIMIT 1`,
+			).Scan(&namaFile, &diupload); err == nil {
+				cut := cutOffDariNama(namaFile, diupload.Year())
+				if cut == "" && !diupload.IsZero() {
+					cut = formatTanggalCutOff(diupload.Local())
+				}
+				if cut != "" {
+					out["masterlistCutoff"] = cut
+				}
+				out["masterlistFile"] = namaFile
+			}
+		}
 	}
 	sendJSON(w, 200, out)
+}
+
+var bulanID = [...]string{"JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOV", "DES"}
+
+func formatTanggalCutOff(t time.Time) string {
+	return fmt.Sprintf("%d %s %d", t.Day(), bulanID[int(t.Month())-1], t.Year())
+}
+
+
+
+
+
+var reCutOff = regexp.MustCompile(`(?i)cut\s*-?\s*off\s*[:\-]?\s*(\d{1,2}\s+[A-Za-z]{3,9})(?:\s+(\d{4}))?`)
+
+func cutOffDariNama(nama string, fallbackYear int) string {
+	m := reCutOff.FindStringSubmatch(nama)
+	if m == nil {
+		return ""
+	}
+	date := strings.Join(strings.Fields(strings.ToUpper(m[1])), " ")
+	if m[2] != "" {
+		return date + " " + m[2]
+	}
+	if fallbackYear <= 0 {
+		return date
+	}
+	return date + " " + fmt.Sprintf("%d", fallbackYear)
 }
 
 func ensureTemplate(root string) {

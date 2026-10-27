@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -251,7 +252,7 @@ func (a *App) gdriveAuth(w http.ResponseWriter, r *http.Request) {
 		sendErr(w, 403, "Setup hanya bisa dari localhost.")
 		return
 	}
-	u, err := a.gdriveAuthURL()
+	u, err := a.gdriveAuthURL(driveRedirectFor(r))
 	if err != nil || u == "" {
 		sendErr(w, 400, "client_secret.json belum ada.")
 		return
@@ -309,11 +310,62 @@ func (a *App) gdriveList(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"files": out})
 }
 
+
+
+var (
+	photoIDMu  sync.Mutex
+	photoIDSet map[string]struct{}
+	photoIDAt  time.Time
+)
+
+
+func invalidatePhotoIDs() {
+	photoIDMu.Lock()
+	photoIDSet = nil
+	photoIDMu.Unlock()
+}
+
+
+func (a *App) photoKnown(id string) bool {
+	if id == "" {
+		return false
+	}
+	photoIDMu.Lock()
+	if photoIDSet == nil || time.Since(photoIDAt) > 15*time.Second {
+		set := make(map[string]struct{}, 4096)
+		for _, p := range a.snapshotUniverse() {
+			if p.ID != "" {
+				set[p.ID] = struct{}{}
+			}
+		}
+		for _, p := range a.snapshotIdx() {
+			if p.ID != "" {
+				set[p.ID] = struct{}{}
+			}
+		}
+		photoIDSet = set
+		photoIDAt = time.Now()
+	}
+	_, ok := photoIDSet[id]
+	photoIDMu.Unlock()
+	return ok
+}
+
 func (a *App) servePhoto(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("id")
 	if id == "" {
 		w.WriteHeader(400)
 		_, _ = w.Write([]byte("Bad request"))
+		return
+	}
+	if !a.waitReady() {
+		w.WriteHeader(503)
+		_, _ = w.Write([]byte("Data masih dimuat, coba lagi sebentar."))
+		return
+	}
+	if !a.photoKnown(id) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte("Foto tidak dikenal."))
 		return
 	}
 	resp, err := a.driveDownloadURL(id)
@@ -488,12 +540,16 @@ func (a *App) gdriveSecret(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	inst, _ := obj["installed"].(map[string]any)
-	if inst == nil || inst["client_id"] == "" || inst["client_secret"] == "" {
+	web, _ := obj["web"].(map[string]any)
+	valid := func(m map[string]any) bool {
+		return m != nil && m["client_id"] != "" && m["client_secret"] != ""
+	}
+	if !valid(inst) && !valid(web) {
 		sendErr(w, 400, "Bukan client_secret.json yang valid.")
 		return
 	}
 	b, _ := json.MarshalIndent(obj, "", "  ")
-	if err := os.WriteFile(filepath.Join(a.root, "client_secret.json"), b, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(a.root, "client_secret.json"), b, 0o600); err != nil {
 		sendErr(w, 400, err.Error())
 		return
 	}

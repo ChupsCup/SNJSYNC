@@ -2,12 +2,12 @@
 <html lang="id" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Login - SNJ SYNC</title>
 <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('ctf-theme') || 'dark');</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#09090b;--card:#18181b;--border:#27272a;--text:#fafafa;--text2:#a1a1aa;
@@ -19,27 +19,57 @@ html,body{height:100%}
 body{
   font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
   font-size:14px;color:var(--text);background:var(--bg);
-  -webkit-font-smoothing:antialiased;
-  display:grid;place-items:center;padding:20px;
+  -webkit-font-smoothing:antialiased;overflow:hidden;
 }
 
 body::before{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;background:url('/bg-dashboard.jpeg') center/cover no-repeat}
-body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.78))}
-html[data-theme="light"] body::after{background:linear-gradient(180deg,rgba(255,252,240,.72),rgba(255,252,240,.88))}
+body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.5),rgba(0,0,0,.75))}
+html[data-theme="light"] body::after{background:linear-gradient(180deg,rgba(255,252,240,.7),rgba(255,252,240,.88))}
+
+#office{position:fixed;inset:0;width:100%;height:100%;z-index:0;display:block}
+
+.topbar{position:sticky;top:clamp(8px,1.2vw,14px);z-index:40;
+  margin:clamp(8px,1.2vw,14px) clamp(12px,2.2vw,34px) 0;
+  background:color-mix(in srgb,var(--bg) 94%,transparent);border:1px solid var(--border);
+  border-radius:var(--r);box-shadow:0 8px 28px rgba(0,0,0,.38)}
+.topbar .inner{display:flex;align-items:center;gap:11px;padding:12px 16px}
+.spacer{flex:1}
+
+.login-area{position:fixed;z-index:10}
+@media(min-width:761px){
+  .login-area{right:max(16px,2vw);top:50%;transform:translateY(-50%);width:min(400px,92vw)}
+}
+@media(max-width:760px){
+
+  #office{display:none}
+  .login-area{left:0;right:0;top:0;bottom:0;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;
+    padding:84px 14px calc(24px + env(safe-area-inset-bottom));
+    overflow:auto;-webkit-overflow-scrolling:touch}
+  .login-area > .greet{width:100%;max-width:440px}
+  .login-area > .greet-sub{width:100%;max-width:440px}
+  .login-area > .box{width:100%;max-width:440px}
+  input[type=text],input[type=password],textarea,select{font-size:16px !important}
+}
 
 .box{
-  position:relative;width:100%;max-width:400px;background:var(--card);
+  position:relative;background:var(--card);
   border:1px solid var(--border);border-radius:var(--r);
   padding:26px;box-shadow:0 18px 50px rgba(0,0,0,.45);
 }
+@media(max-width:760px){.box{padding:20px}}
+
 .brand{display:flex;align-items:center;gap:11px;margin-bottom:6px}
 .logo{
-  width:40px;height:40px;border-radius:11px;background:var(--accent);
+  width:38px;height:38px;border-radius:10px;background:var(--accent);
   display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;flex-shrink:0;
 }
-.brand-text h1{font-family:'Space Grotesk',system-ui,sans-serif;font-size:17px;font-weight:700;letter-spacing:-.02em}
-.brand-text p{font-size:12px;color:var(--text2);margin-top:1px}
-h2{font-size:13px;font-weight:600;margin:20px 0 12px}
+.brand-text h1{font-family:'Space Grotesk',system-ui,sans-serif;font-size:16px;font-weight:700;letter-spacing:-.02em}
+.brand-text p{font-size:11.5px;color:var(--text2);margin-top:1px}
+.greet{font-family:'Space Grotesk',system-ui,sans-serif;font-size:clamp(24px,2.7vw,34px);font-weight:700;
+  letter-spacing:-.02em;line-height:1.15;color:var(--text);margin:0 0 6px;text-shadow:0 2px 14px rgba(0,0,0,.6)}
+.greet-sub{font-size:13.5px;color:var(--text2);margin:0 0 16px;line-height:1.55;text-shadow:0 1px 10px rgba(0,0,0,.55)}
+html[data-theme="light"] .greet,html[data-theme="light"] .greet-sub{text-shadow:0 1px 12px rgba(255,255,255,.65)}
 label{display:block;font-size:11.5px;color:var(--text2);font-weight:600;margin-bottom:5px}
 input[type=text],input[type=password]{
   width:100%;padding:12px 13px;font-size:13px;background:var(--bg);
@@ -77,21 +107,28 @@ button:disabled{opacity:.55;cursor:wait}
   padding:9px 12px;border-radius:9px;display:none;
 }
 #msg.err{display:block;color:var(--red);border:1px solid color-mix(in srgb,var(--red) 40%,transparent);background:color-mix(in srgb,var(--red) 10%,transparent)}
-.hint{margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text2);line-height:1.6}
-.hint a{color:var(--accent);text-decoration:none;font-weight:600}
 </style>
+<link rel="stylesheet" href="clay.css?v=20261019b">
 </head>
 <body>
-<div class="box">
-  <div class="brand">
+<canvas id="office" data-bg="transparent"></canvas>
+
+<header class="topbar">
+  <div class="inner">
     <div class="logo">SNJ</div>
     <div class="brand-text">
       <h1>SNJ SYNC</h1>
       <p>Master Data System</p>
     </div>
+    <div class="spacer"></div>
   </div>
+</header>
 
-  <h2>Masuk sebagai Admin</h2>
+<div class="login-area">
+  <h2 class="greet" id="greet">Masuk</h2>
+  <p class="greet-sub" id="greetSub"></p>
+
+  <div class="box">
   <form id="f" autocomplete="on">
     <div class="field">
       <label for="u">Username</label>
@@ -113,13 +150,35 @@ button:disabled{opacity:.55;cursor:wait}
   </form>
 
   <div id="msg"></div>
-
-<div class="hint">
-    <a href="/">&larr; Kembali ke tampilan user</a>
   </div>
 </div>
 
+<script src="/office.js?v=20261020"></script>
 <script>
+(function initGreeting() {
+  const raw = (localStorage.getItem('ctf-last-user') || '').trim();
+  const name = raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : '';
+  const h = new Date().getHours();
+  const waktu = (h >= 5 && h < 11) ? 'Selamat pagi'
+    : (h >= 11 && h < 15) ? 'Selamat siang'
+    : (h >= 15 && h < 18) ? 'Selamat sore'
+    : 'Selamat malam';
+  const casual = name ? [
+    'Halo, ' + name + '!',
+    'Hai ' + name + ', apa kabar?',
+    'Selamat datang kembali, ' + name,
+    'Senang melihatmu lagi, ' + name,
+  ] : [
+    'Halo!',
+    'Hai, apa kabar?',
+  ];
+  const pool = [waktu, waktu, ...casual];
+  const greet = document.getElementById('greet');
+  const sub = document.getElementById('greetSub');
+  if (greet) greet.textContent = pool[Math.floor(Math.random() * pool.length)];
+  if (sub) sub.textContent = name ? 'Masuk untuk melanjutkan.' : 'Silakan masuk ke akunmu.';
+})();
+
 const form = document.getElementById('f');
 const btn = document.getElementById('btn');
 const msg = document.getElementById('msg');
@@ -151,8 +210,10 @@ form.addEventListener('submit', async (e) => {
       btn.textContent = 'Masuk';
       return;
     }
+    if (d.username) localStorage.setItem('ctf-last-user', d.username);
     btn.textContent = 'Berhasil, mengarahkan...';
-    location.href = '/dashboard';
+    const isAdmin = d.role === 'admin' || d.role === 'superadmin';
+    location.href = isAdmin ? '/dashboard' : '/';
   } catch (err) {
     show('Gagal menghubungi server.', true);
     btn.disabled = false;
@@ -179,7 +240,10 @@ pEye.addEventListener('click', (e) => {
 
 
 fetch('/api/auth/me').then(r => r.json()).then(d => {
-  if (d && d.loggedIn) location.href = '/dashboard';
+  if (d && d.loggedIn && d.session) {
+    const isAdmin = d.session.role === 'admin' || d.session.role === 'superadmin';
+    location.href = isAdmin ? '/dashboard' : '/';
+  }
 }).catch(() => {});
 </script>
 </body>

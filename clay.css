@@ -1,0 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;500;600;700&display=swap');
+
+:root{
+  --paper:#1f2128;--text:#f3f3fa;--muted:#a3a7bd;
+  --orange:#f2481f;--ok:#3ddc84;--ok-bg:#16382a;
+  --sh-d:rgba(0,0,0,.65);--sh-l:rgba(255,255,255,.07);
+  --in-d:rgba(0,0,0,.55);--in-l:rgba(255,255,255,.09);
+  color-scheme:dark;
+  --bg:#17191f;--card:#252831;--border:rgba(255,255,255,.07);
+  --text2:#a3a7bd;--accent:#f2481f;--green:#3ddc84;--red:#ff6b5e;
+  --yellow:#f5c451;--radius:22px;
+}
+
+html[data-theme="light"]{
+  --paper:#e9eaef;--bg:#dfe1e8;--card:#eceef4;--border:rgba(0,0,0,.06);
+  --text:#22242c;--muted:#5c6072;--text2:#5c6072;--accent:#e0430f;--orange:#e0430f;
+  --green:#1f9d55;--ok:#1f9d55;--red:#e0430f;--yellow:#c98a00;
+  --sh-d:rgba(122,126,142,.38);--sh-l:rgba(255,255,255,.85);
+  --in-d:rgba(122,126,142,.35);--in-l:rgba(255,255,255,.9);
+}
+
+body{font-family:'Nunito','Segoe UI',system-ui,-apple-system,sans-serif;font-size:15px;font-weight:500;color:var(--text);background:var(--bg)}
+
+h1,h2,h3,.wordmark,.brand-text h1,.greet,.sec-head{font-family:'Baloo 2','Nunito',system-ui,sans-serif;letter-spacing:-.01em}
+
+.clay{background:var(--c,var(--paper));border-radius:36px;box-shadow:14px 14px 28px var(--sh-d),-6px -6px 18px var(--sh-l),inset -8px -8px 16px var(--in-d),inset 8px 8px 16px var(--in-l)}
+.clay.sm{border-radius:22px;box-shadow:6px 6px 12px var(--sh-d),-3px -3px 8px var(--sh-l),inset -3px -3px 6px var(--in-d),inset 3px 3px 6px var(--in-l)}
+
+.topbar{border-radius:999px;background:var(--paper);border:none;will-change:transform;box-shadow:10px 10px 22px var(--sh-d),-5px -5px 14px var(--sh-l),inset -5px -5px 11px var(--in-d),inset 5px 5px 11px var(--in-l)}
+.bottom-nav{will-change:transform}
+.logo{border-radius:50%;background:var(--orange);color:#fff;font-family:'Baloo 2',sans-serif;font-weight:800;box-shadow:5px 5px 10px var(--sh-d),-2px -2px 6px var(--sh-l),inset -2px -2px 5px rgba(0,0,0,.35),inset 2px 2px 5px rgba(255,255,255,.28)}
+.brand-text h1{font-weight:800}
+
+.sec,.card,.box{background:var(--paper);border-color:transparent;box-shadow:6px 6px 12px var(--sh-d),-3px -3px 8px var(--sh-l),inset -3px -3px 6px var(--in-d),inset 3px 3px 6px var(--in-l)}
+.card,.box{border:none}
+.stat,.modal-card,.rcard{background:var(--paper);border:none;border-radius:22px;box-shadow:6px 6px 12px var(--sh-d),-3px -3px 8px var(--sh-l),inset -3px -3px 6px var(--in-d),inset 3px 3px 6px var(--in-l)}
+.photo{border:none;border-radius:16px;box-shadow:5px 5px 10px var(--sh-d),-2px -2px 6px var(--sh-l)}
+.tblbox{border-color:transparent;border-radius:16px;background:rgba(0,0,0,.18);box-shadow:inset 3px 3px 6px var(--in-d),inset -3px -3px 6px var(--in-l)}
+
+.chip{background:rgba(0,0,0,.22);border:none;border-radius:999px;box-shadow:inset 3px 3px 6px var(--in-d),inset -3px -3px 6px var(--in-l)}
+
+input[type=text],input[type=search],input[type=password],input[type=email],input[type=number],input[type=url],textarea,select{background:rgba(0,0,0,.22);border-color:transparent;border-radius:14px;box-shadow:inset 3px 3px 6px var(--in-d),inset -3px -3px 6px var(--in-l);color:var(--text)}
+
+button.primary{background:var(--orange);border-radius:999px;box-shadow:6px 6px 12px var(--sh-d),-3px -3px 8px var(--sh-l),inset -3px -3px 6px rgba(0,0,0,.3),inset 3px 3px 6px rgba(255,255,255,.25)}
+button.ghost,button.danger{border-radius:999px}
+
+@media(max-width:760px){
+  input[type=text],input[type=search],input[type=password],input[type=email],input[type=number],input[type=url],textarea,select{font-size:16px}
+}

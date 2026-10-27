@@ -21,10 +21,31 @@ import (
 )
 
 const (
-	driveScope    = "https://www.googleapis.com/auth/drive"
-	driveRedirect = "http://localhost:8877/api/gdrive/callback"
-	indexFileName = "index.json"
+	driveScope = "https://www.googleapis.com/auth/drive"
+
+
+
+	driveRedirect  = "http://localhost:8877/api/gdrive/callback"
+	callbackPath   = "/api/gdrive/callback"
+	indexFileName  = "index.json"
 )
+
+
+
+
+func driveRedirectFor(r *http.Request) string {
+	if v := strings.TrimSpace(secretValue("CTF_OAUTH_REDIRECT")); v != "" {
+		return v
+	}
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	if p := r.Header.Get("X-Forwarded-Proto"); p == "https" || p == "http" {
+		scheme = p
+	}
+	return scheme + "://" + r.Host + callbackPath
+}
 
 type driveToken struct {
 	AccessToken  string `json:"access_token"`
@@ -38,7 +59,14 @@ type clientSecret struct {
 		ClientID     string `json:"client_id"`
 		ClientSecret string `json:"client_secret"`
 	} `json:"installed"`
+	Web struct {
+		ClientID     string `json:"client_id"`
+		ClientSecret string `json:"client_secret"`
+	} `json:"web"`
 }
+
+
+
 
 var (
 	tokenMu    sync.Mutex
@@ -58,10 +86,24 @@ func invalidateAboutUser() {
 	aboutUserMu.Unlock()
 }
 
+func (cs *clientSecret) CID() string {
+	if cs.Web.ClientID != "" {
+		return cs.Web.ClientID
+	}
+	return cs.Installed.ClientID
+}
+
+func (cs *clientSecret) CSecret() string {
+	if cs.Web.ClientID != "" {
+		return cs.Web.ClientSecret
+	}
+	return cs.Installed.ClientSecret
+}
+
 func (a *App) loadClientSecret() *clientSecret {
 	if v := os.Getenv("CTF_CLIENT_SECRET"); v != "" {
 		var cs clientSecret
-		if json.Unmarshal([]byte(v), &cs) == nil && cs.Installed.ClientID != "" {
+		if json.Unmarshal([]byte(v), &cs) == nil && (cs.Web.ClientID != "" || cs.Installed.ClientID != "") {
 			return &cs
 		}
 	}
@@ -70,7 +112,7 @@ func (a *App) loadClientSecret() *clientSecret {
 		return nil
 	}
 	var cs clientSecret
-	if json.Unmarshal(b, &cs) != nil || cs.Installed.ClientID == "" {
+	if json.Unmarshal(b, &cs) != nil || (cs.Web.ClientID == "" && cs.Installed.ClientID == "") {
 		return nil
 	}
 	return &cs
@@ -104,7 +146,7 @@ func (a *App) saveToken(t *driveToken) {
 		return
 	}
 	_ = os.MkdirAll(a.dataDir, 0o755)
-	_ = os.WriteFile(a.tokenPath(), b, 0o644)
+	_ = os.WriteFile(a.tokenPath(), b, 0o600)
 }
 
 func (a *App) gdriveAccessToken() (string, error) {
@@ -125,8 +167,8 @@ func (a *App) gdriveAccessToken() (string, error) {
 		return "", nil
 	}
 	form := url.Values{}
-	form.Set("client_id", cs.Installed.ClientID)
-	form.Set("client_secret", cs.Installed.ClientSecret)
+	form.Set("client_id", cs.CID())
+	form.Set("client_secret", cs.CSecret())
 	form.Set("refresh_token", t.RefreshToken)
 	form.Set("grant_type", "refresh_token")
 	resp, err := http.PostForm("https://oauth2.googleapis.com/token", form)
@@ -155,7 +197,7 @@ func (a *App) gdriveAccessToken() (string, error) {
 	return t.AccessToken, nil
 }
 
-func (a *App) gdriveAuthURL() (string, error) {
+func (a *App) gdriveAuthURL(redirect string) (string, error) {
 	cs := a.loadClientSecret()
 	if cs == nil {
 		return "", nil
@@ -164,12 +206,12 @@ func (a *App) gdriveAuthURL() (string, error) {
 	sum := sha256.Sum256([]byte(verifier))
 	challenge := base64.RawURLEncoding.EncodeToString(sum[:])
 	a.mu.Lock()
-	a.oauth = &oauthState{verifier: verifier, state: randomHex(8)}
+	a.oauth = &oauthState{verifier: verifier, state: randomHex(8), redirect: redirect}
 	st := a.oauth
 	a.mu.Unlock()
 	p := url.Values{}
-	p.Set("client_id", cs.Installed.ClientID)
-	p.Set("redirect_uri", driveRedirect)
+	p.Set("client_id", cs.CID())
+	p.Set("redirect_uri", redirect)
 	p.Set("response_type", "code")
 	p.Set("scope", driveScope)
 	p.Set("access_type", "offline")
@@ -189,13 +231,17 @@ func (a *App) gdriveExchange(code string) error {
 	st := a.oauth
 	a.mu.RUnlock()
 	form := url.Values{}
-	form.Set("client_id", cs.Installed.ClientID)
-	form.Set("client_secret", cs.Installed.ClientSecret)
+	form.Set("client_id", cs.CID())
+	form.Set("client_secret", cs.CSecret())
 	form.Set("code", code)
 	if st != nil {
 		form.Set("code_verifier", st.verifier)
 	}
-	form.Set("redirect_uri", driveRedirect)
+	redirect := driveRedirect
+	if st != nil && st.redirect != "" {
+		redirect = st.redirect
+	}
+	form.Set("redirect_uri", redirect)
 	form.Set("grant_type", "authorization_code")
 	resp, err := http.PostForm("https://oauth2.googleapis.com/token", form)
 	if err != nil {

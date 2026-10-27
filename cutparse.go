@@ -95,6 +95,42 @@ func cutKeys(name string) (base, suffix string) {
 	return n, ""
 }
 
+func cutCanon(words []string) string {
+	if len(words) == 0 || len(words) > 3 {
+		return ""
+	}
+	var b strings.Builder
+	for _, w := range words {
+		if w == "" {
+			return ""
+		}
+		for _, r := range w {
+			switch {
+			case r >= 'a' && r <= 'z':
+				b.WriteRune(r - 32)
+			case r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+				b.WriteRune(r)
+			}
+		}
+	}
+	k := b.String()
+	if len(k) < 3 || len(k) > 24 {
+		return ""
+	}
+	if _, ok := cutGroups[k]; ok {
+		return k
+	}
+	for sl := 1; sl <= 2; sl++ {
+		if len(k)-sl < 4 {
+			break
+		}
+		if _, ok := cutGroups[k[:len(k)-sl]]; ok {
+			return k[:len(k)-sl]
+		}
+	}
+	return ""
+}
+
 func stripTrailingGeneric(name string) string {
 	prev := ""
 	s := strings.TrimSpace(name)

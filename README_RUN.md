@@ -30,6 +30,44 @@ Setelah server berjalan, buka browser ke: [http://localhost:8877](http://localho
 ## Menghentikan Server
 Tekan `Ctrl + C` di jendela terminal yang menjalankan snjsync.exe
 
+## Jalankan di WSL / Linux
+1. Install Go (min. 1.27), lalu:
+   ```bash
+   cd /path/ke/snjsync
+   go build -o snjsync .
+   ```
+2. Buat `.env` (contoh: `.env.example`), isi `CTF_DB_HOST` dan password.
+   - DB di mesin lain → `CTF_DB_HOST=<IP DB server>` dan `CTF_NO_PG_AUTOSTART=1`.
+   - `.env`, `config.json`, `data/`, `client_secret.json` harus ada di folder saat run.
+3. Jalankan `./snjsync` dari folder tersebut. Server: `http://<host>:8877`.
+
+## Build untuk server Linux (upload binary, tanpa install Go di server)
+```bash
+./build-linux.sh   # hasil: snjsync_linux (static)
+```
+Upload `snjsync_linux` + `*.html` + `*.js` + aset, lalu:
+- pm2: `pm2 start ecosystem.config.js`
+- atau Docker: `docker build -t snjsync .`
+
+## Deploy (DB server terpisah)
+Di **DB server** (PostgreSQL):
+```sql
+CREATE USER ctf WITH PASSWORD 'ctf_password';
+CREATE DATABASE ctf_db OWNER ctf;
+```
++ `postgresql.conf`: `listen_addresses = '*'`
++ `pg_hba.conf`: `host all ctf <IP-web-server>/32 md5`
+Di **web server**, `.env`:
+```
+CTF_DB_HOST=<IP DB server>
+CTF_DB_PASSWORD=ctf_password
+CTF_NO_PG_AUTOSTART=1
+```
+
+## Nahkah Catatan
+- Server auto-check port `8877`, bind default `127.0.0.1`.
+  Set `CTF_BIND=0.0.0.0` kalau mau expose langsung / tanpa reverse proxy.
+
 ## Catatan
 - Server akan otomatis check apakah port `8877` sudah dipakai
 - Jika `.exe` belum ada, script akan otomatis build menggunakan Go

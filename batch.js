@@ -151,17 +151,26 @@ function render() {
   btnExp.textContent = 'Ekspor ' + picked + ' Foto Terpilih ke Drive';
 }
 
+let chkPmCtl = null;
+let expPmCtl = null;
 btnCheck.onclick = async () => {
+  if (btnCheck.disabled) return;
   const rows = parseCsv(csvBox.value);
   if (!rows.length) { toast('Kotak kosong — paste dari Excel dulu.', 'fail'); return; }
+  btnCheck.disabled = true;
+  btnCheck.textContent = 'Memeriksa...';
   const g = await (await fetch('/api/gdrive/status')).json();
   if (!g.configured || !g.authorized) {
+    btnCheck.disabled = false; btnCheck.textContent = 'Periksa ke Index';
     if (!g.admin) { toast('Google belum dikonfigurasi admin. Hubungi pemilik web.', 'fail'); return; }
     openGdriveModal();
     return;
   }
-  btnCheck.disabled = true;
-  btnCheck.innerHTML = '<span class="spinner"></span>Memeriksa...';
+  const cr = $('checkRow');
+  cr.style.display = 'flex';
+  $('checkRowText').textContent = 'Memeriksa daftar ke Index...';
+  if (chkPmCtl) chkPmCtl.destroy();
+  chkPmCtl = Pm.create($('checkRowPac'), { height: 34, spin: true });
   picks = {};
   try {
     const d = await (await fetch('/api/batch/check', {
@@ -176,6 +185,7 @@ btnCheck.onclick = async () => {
   } catch (err) {
     toast('Error: ' + err.message, 'fail');
   }
+  cr.style.display = 'none';
   btnCheck.disabled = false;
   btnCheck.textContent = 'Periksa ke Index';
 };
@@ -255,14 +265,21 @@ expRun.onclick = async () => {
   if (!folderId) { expStatus.textContent = 'Pilih folder tujuan dulu.'; return; }
   const items = Object.keys(picks).map((k) => picks[k]);
   expRun.disabled = true;
-  expRun.innerHTML = '<span class="spinner"></span>Mengirim...';
+  expRun.textContent = 'Mengirim...';
   expResult.innerHTML = ''; expResult.className = '';
+  const es = expStatus;
+  es.style.display = 'flex'; es.style.alignItems = 'center'; es.style.gap = '8px'; es.style.flexWrap = 'wrap';
+  es.innerHTML = '<span style="flex:0 1 auto">Mengirim ' + items.length + ' foto ke Google Drive...</span><div id="expPmW" style="width:180px;height:34px;flex:0 0 auto;line-height:0"></div>';
+  if (expPmCtl) expPmCtl.destroy();
+  expPmCtl = Pm.create($('expPmW'), { height: 34, spin: true });
   try {
     const d = await (await fetch('/api/batch/export', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ folderId, items })
     })).json();
     if (d.error) throw new Error(d.error);
+    if (expPmCtl) { expPmCtl.destroy(); expPmCtl = null; }
+    es.style.display = 'none'; es.innerHTML = '';
     expResult.className = d.fails.length ? 'fail' : 'ok';
     expResult.innerHTML = '\u2714 ' + d.done.length + ' foto terkirim ke Google Drive.' +
       (d.fails.length ? '<br>\u2716 Gagal: ' + esc(d.fails.join(' | ')) : '') +
@@ -270,6 +287,8 @@ expRun.onclick = async () => {
     expRun.disabled = false;
     expRun.textContent = 'Ekspor ' + items.length + ' Foto';
   } catch (err) {
+    if (expPmCtl) { expPmCtl.destroy(); expPmCtl = null; }
+    es.style.display = 'none'; es.innerHTML = '';
     expResult.className = 'fail';
     expResult.innerHTML = 'Error: ' + esc(err.message);
     expRun.disabled = false;
@@ -289,7 +308,13 @@ setInterval(refreshGdriveDot, 30000);
 
 const _idxBtn = $('idxBtn');
 if (_idxBtn) _idxBtn.addEventListener('click', async () => {
+  navSettingsDD.classList.remove('show');
   _idxBtn.disabled = true;
+  const cr = $('checkRow');
+  cr.style.display = 'flex';
+  $('checkRowText').textContent = 'Menyinkronkan foto dari Google Drive...';
+  if (chkPmCtl) chkPmCtl.destroy();
+  chkPmCtl = Pm.create($('checkRowPac'), { height: 34, spin: true });
   try {
     const d = await (await fetch('/api/index/refresh?force=1')).json();
     if (d.error) throw new Error(d.error);
@@ -300,7 +325,10 @@ if (_idxBtn) _idxBtn.addEventListener('click', async () => {
   } catch (err) {
     toast('Gagal: ' + err.message, 'fail');
   }
+  if (chkPmCtl) { chkPmCtl.destroy(); chkPmCtl = null; }
+  cr.style.display = 'none';
   _idxBtn.disabled = false;
+  _idxBtn.textContent = 'Sinkron Foto';
 });
 
 const _reconnectBtn = $('authReconnect');

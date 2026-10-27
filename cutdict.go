@@ -88,6 +88,16 @@ var cutGroups = map[string]string{
 
 func cutGroupOf(key string) string { return cutGroups[key] }
 
+var cutPrefix3 = func() map[string]bool {
+	m := map[string]bool{}
+	for k := range cutGroups {
+		if len(k) >= 3 {
+			m[k[:3]] = true
+		}
+	}
+	return m
+}()
+
 func cutKnown(key string) bool { _, ok := cutGroups[key]; return ok }
 
 func aliasFromML(names []string) map[string]string {

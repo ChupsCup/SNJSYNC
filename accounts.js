@@ -61,12 +61,14 @@ async function api(path, params) {
 
 
 let cache = [];
+let filterStatus = '';
+let sortMode = 'role';
 
 async function load() {
   const res = await api('/api/auth/accounts');
   if (!res.ok) {
     $('rows').innerHTML =
-      '<tr><td colspan="6" class="empty">' +
+      '<tr><td colspan="7" class="empty">' +
       esc(res.d.error || 'Gagal memuat daftar akun.') + '</td></tr>';
     say($('lMsg'), res.d.error || 'Gagal memuat daftar akun.', false);
     $('btnCreate').disabled = true;
@@ -74,10 +76,53 @@ async function load() {
   }
   cache = res.d.accounts || [];
   if (!cache.length) {
-    $('rows').innerHTML = '<tr><td colspan="6" class="empty">Belum ada akun.</td></tr>';
+    $('rows').innerHTML = '<tr><td colspan="7" class="empty">Belum ada akun.</td></tr>';
+    updateStat();
     return;
   }
-  $('rows').innerHTML = cache.map(row).join('');
+  render();
+}
+
+function render() {
+  let list = cache.slice();
+  if (filterStatus) list = list.filter(a => a.status === filterStatus);
+  if (sortMode === 'idle') {
+    list.sort((a, b) => {
+      const x = a.idleDays < 0 ? Number.MAX_SAFE_INTEGER : a.idleDays;
+      const y = b.idleDays < 0 ? Number.MAX_SAFE_INTEGER : b.idleDays;
+      return y - x;
+    });
+  }
+  $('rows').innerHTML = list.length
+    ? list.map(row).join('')
+    : '<tr><td colspan="7" class="empty">Tidak ada akun pada filter ini.</td></tr>';
+  updateStat();
+}
+
+function updateStat() {
+  const c = { aktif: 0, jarang: 0, mati: 0, belum: 0 };
+  cache.forEach(a => { c[a.status] = (c[a.status] || 0) + 1; });
+  $('fStat').innerHTML =
+    '<span class="badge aktif">Aktif ' + c.aktif + '</span>' +
+    '<span class="badge jarang">Jarang ' + c.jarang + '</span>' +
+    '<span class="badge mati">Tidak aktif ' + c.mati + '</span>' +
+    (c.belum ? '<span class="badge belum">Belum ' + c.belum + '</span>' : '');
+}
+
+function statusInfo(a) {
+  switch (a.status) {
+    case 'aktif': return { cls: 'aktif', label: 'Aktif' };
+    case 'jarang': return { cls: 'jarang', label: 'Jarang' };
+    case 'mati': return { cls: 'mati', label: 'Tidak aktif' };
+    default: return { cls: 'belum', label: 'Belum pernah' };
+  }
+}
+
+function agoText(a) {
+  if (a.idleDays == null || a.idleDays < 0) return 'belum pernah';
+  if (a.idleDays === 0) return 'hari ini';
+  if (a.idleDays === 1) return 'kemarin';
+  return a.idleDays + ' hari lalu';
 }
 
 function row(a) {
@@ -85,8 +130,15 @@ function row(a) {
     ? '<span class="badge live">' + a.sesiAktif + ' aktif</span>'
     : '<span class="muted">tidak aktif</span>';
   const you = a.isYou ? ' <span class="badge you">kamu</span>' : '';
-  
-  
+  const st = statusInfo(a);
+  const keaktifan =
+    '<span class="badge ' + st.cls + '">' + st.label + '</span>' +
+    '<div class="muted" style="margin-top:3px">' + a.loginTotal + ' login' +
+      (a.loginTotal ? ' \u00b7 30hr: ' + a.login30 : '') + '</div>';
+  const seenTip = a.lastSeen
+    ? ' title="Terakhir dipakai: ' + esc(a.lastSeen) + '"'
+    : (a.lastLogin ? ' title="Login terakhir: ' + esc(a.lastLogin) + '"' : '');
+
   const superCount = cache.filter(x => x.role === 'superadmin').length;
   const lastSuper = a.role === 'superadmin' && superCount <= 1;
   const delDisabled = a.isYou || lastSuper ? ' disabled' : '';
@@ -97,11 +149,13 @@ function row(a) {
   return '<tr data-id="' + a.id + '">' +
     '<td class="u">' + esc(a.username) + you + '</td>' +
     '<td>' + roleBadge(a) + '</td>' +
-    '<td class="muted">' + esc(a.createdAt) + '</td>' +
-    '<td class="muted">' + (a.lastLogin ? esc(a.lastLogin) : 'belum pernah') + '</td>' +
+    '<td>' + moduleBadges(a) + '</td>' +
+    '<td>' + keaktifan + '</td>' +
+    '<td class="muted"' + seenTip + '>' + esc(agoText(a)) + '</td>' +
     '<td>' + live + '</td>' +
     '<td><div class="row-actions">' +
       '<button class="ghost" data-act="edit">Ubah</button>' +
+      '<button class="ghost" data-act="act">Aktivitas</button>' +
       '<button class="ghost" data-act="out"' + (a.sesiAktif > 0 ? '' : ' disabled') +
         ' title="Keluarkan akun ini dari semua perangkat/browser sekaligus.">Keluar semua</button>' +
       '<button class="ghost danger" data-act="del" title="' + esc(delTitle) + '"' + delDisabled + '>Hapus</button>' +
@@ -110,9 +164,31 @@ function row(a) {
 }
 
 function roleBadge(a) {
-  return a.role === 'superadmin'
-    ? '<span class="badge super">Super Admin</span>'
-    : '<span class="badge admin">Admin</span>';
+  if (a.role === 'superadmin') return '<span class="badge super">Super Admin</span>';
+  if (a.role === 'user') return '<span class="badge admin">User</span>';
+  return '<span class="badge admin">Admin</span>';
+}
+
+const MOD_NAMES = { ctf: 'Cari Foto', mc: 'Master Item', mmd: 'Masterlist' };
+
+function moduleBadges(a) {
+  if (a.role !== 'user') return '<span class="muted">semua</span>';
+  const mods = a.modules || [];
+  if (!mods.length) return '<span class="muted">-</span>';
+  return '<div class="mod-badges">' + mods.map(m =>
+    '<span class="badge">' + esc(MOD_NAMES[m] || m) + '</span>').join('') + '</div>';
+}
+
+function checkedMods(prefix) {
+  return Array.from(document.querySelectorAll('.' + prefix + 'Mod:checked')).map(x => x.value);
+}
+function setModChecks(prefix, mods) {
+  const set = new Set(mods || []);
+  document.querySelectorAll('.' + prefix + 'Mod').forEach(x => { x.checked = set.has(x.value); });
+}
+function setModWrap(role, prefix) {
+  const wrap = $(prefix + 'ModWrap');
+  if (wrap) wrap.style.display = role === 'user' ? '' : 'none';
 }
 
 
@@ -130,7 +206,9 @@ let editId = null;
     
     setEye(document.querySelector('.pw-eye[data-eye="ePass"]'), false);
   $('eRole').value = a.role;
-  $('eRole').disabled = a.isYou;   
+  $('eRole').disabled = a.isYou;
+  setModChecks('e', a.modules);
+  setModWrap(a.role, 'e');
   $('eNote').textContent = a.isYou
     ? 'Ini akun kamu. Ganti username / password boleh; role terkunci agar kamu tidak mengunci diri sendiri dari halaman ini.'
     : 'Kosongkan password kalau tidak ingin mengubahnya. Mengubah akun ini akan mengeluarkan semua sesinya di browser lain.';
@@ -164,6 +242,8 @@ $('rows').addEventListener('click', async e => {
   if (!a) return;
 
   if (btn.dataset.act === 'edit') { openEdit(id); return; }
+
+  if (btn.dataset.act === 'act') { openActivity(id); return; }
 
   if (btn.dataset.act === 'out') {
     if (btn.disabled) return;
@@ -215,9 +295,16 @@ $('btnCreate').addEventListener('click', async () => {
     say($('cMsg'), 'Username dan password wajib diisi.', false);
     return;
   }
+  if (role === 'user' && !checkedMods('c').length) {
+    say($('cMsg'), 'Pilih minimal satu modul untuk akun User.', false);
+    return;
+  }
   btn.disabled = true;
   btn.textContent = 'Membuat...';
-  const res = await api('/api/auth/accounts/create', { username, password, role });
+  const res = await api('/api/auth/accounts/create', {
+    username, password, role,
+    modules: role === 'user' ? checkedMods('c').join(',') : '',
+  });
   btn.disabled = false;
   btn.textContent = 'Buat Akun';
   if (!res.ok) {
@@ -228,6 +315,7 @@ $('btnCreate').addEventListener('click', async () => {
     $('cUser').value = '';
     $('cPass').value = '';
     setEye(document.querySelector('.pw-eye[data-eye="cPass"]'), false);
+    setModChecks('c', []);
     await load();
 });
 
@@ -242,6 +330,11 @@ $('btnSave').addEventListener('click', async () => {
   const password = $('ePass').value;
   const role = $('eRole').value;
 
+  const effRole = $('eRole').disabled ? null : role;
+  if (effRole === 'user' && !checkedMods('e').length) {
+    say($('eMsg'), 'Pilih minimal satu modul untuk akun User.', false);
+    return;
+  }
   btn.disabled = true;
   btn.textContent = 'Menyimpan...';
   const res = await api('/api/auth/accounts/update', {
@@ -249,6 +342,7 @@ $('btnSave').addEventListener('click', async () => {
     username: username,
     password: password,
     role: $('eRole').disabled ? '-' : role,
+    modules: checkedMods('e').join(','),
   });
   btn.disabled = false;
   btn.textContent = 'Simpan Perubahan';
@@ -264,6 +358,64 @@ $('btnSave').addEventListener('click', async () => {
 });
 
 $('btnCancel').addEventListener('click', closeEdit);
+
+$('cRole').addEventListener('change', () => setModWrap($('cRole').value, 'c'));
+$('eRole').addEventListener('change', () => setModWrap($('eRole').value, 'e'));
+setModWrap($('cRole').value, 'c');
+
+function actStat(n, l) {
+  return '<div class="act-stat"><div class="n">' + n + '</div><div class="l">' + esc(l) + '</div></div>';
+}
+
+async function openActivity(id) {
+  const a = cache.find(x => x.id === id);
+  if (!a) return;
+  const st = statusInfo(a);
+  $('actTitle').textContent = 'Aktivitas Login \u2014 ' + a.username;
+  $('actSub').innerHTML =
+    '<span class="badge ' + st.cls + '">' + st.label + '</span>' +
+    '<span>Terakhir dipakai: ' + esc(a.lastSeen || a.lastLogin || 'belum pernah') + '</span>';
+  $('actSum').innerHTML = '<div class="act-stat"><div class="n">\u2026</div><div class="l">memuat</div></div>';
+  $('actChart').innerHTML = '';
+  $('actOvl').hidden = false;
+
+  const res = await api('/api/auth/accounts/activity?id=' + id);
+  if (!res.ok) {
+    $('actSum').innerHTML = '<div class="act-stat"><div class="n">!</div><div class="l">' +
+      esc(res.d.error || 'Gagal memuat') + '</div></div>';
+    return;
+  }
+  const d = res.d;
+  const days = d.days || [];
+  const max = days.reduce((m, x) => Math.max(m, x.count), 0);
+  $('actSum').innerHTML =
+    actStat(d.total30, 'Login 30 hari') +
+    actStat(d.total, 'Total login') +
+    actStat(a.sesiAktif, 'Sesi aktif') +
+    actStat(max, 'Terbanyak/hari');
+  $('actChart').innerHTML = days.map(x => {
+    const h = x.count ? Math.max(5, Math.round(x.count / max * 100)) : 2;
+    return '<div class="bar' + (x.count ? '' : ' zero') + '" style="height:' + h + '%" title="' +
+      esc(x.date) + ': ' + x.count + ' login"></div>';
+  }).join('');
+}
+
+$('actClose').addEventListener('click', () => { $('actOvl').hidden = true; });
+$('actOvl').addEventListener('click', e => {
+  if (e.target === $('actOvl')) $('actOvl').hidden = true;
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('actOvl').hidden) $('actOvl').hidden = true;
+});
+
+$('fStatus').addEventListener('change', () => {
+  filterStatus = $('fStatus').value;
+  render();
+});
+$('fSort').addEventListener('change', () => {
+  sortMode = $('fSort').value;
+  render();
+});
 
 
 

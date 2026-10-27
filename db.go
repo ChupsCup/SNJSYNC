@@ -155,6 +155,19 @@ CREATE TABLE IF NOT EXISTS review_decisions (
   hits INTEGER DEFAULT 0,
   created_at TIMESTAMP DEFAULT NOW()
 );
+CREATE TABLE IF NOT EXISTS mc_aliases (
+  id SERIAL PRIMARY KEY,
+  left_text TEXT NOT NULL,
+  right_text TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mc_aliases_pair ON mc_aliases(left_text, right_text);
+CREATE TABLE IF NOT EXISTS mc_ignore_words (
+  id SERIAL PRIMARY KEY,
+  word TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mc_ignore_words_word ON mc_ignore_words(word);
 CREATE INDEX IF NOT EXISTS idx_packing_items_upload ON packing_items(upload_id);
 CREATE INDEX IF NOT EXISTS idx_masterlist_items_upload ON masterlist_items(upload_id);
 CREATE INDEX IF NOT EXISTS idx_compare_results_packing ON compare_results(packing_upload_id);

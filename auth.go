@@ -5,9 +5,12 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -16,10 +19,44 @@ import (
 const (
 	roleAdmin = "admin"
 	roleSuper = "superadmin"
+	roleUser  = "user"
+
+	modCTF = "ctf"
+	modMC  = "mc"
+	modMMD = "mmd"
 
 	sessCookieName = "snj_session"
-	sessMaxAge     = 12 * 3600
+
+
+	seenThrottle = 5 * time.Minute
+
+
+	activeMaxDays = 7
+	idleMaxDays   = 30
 )
+
+var (
+	sessAgeOnce sync.Once
+	sessAgeSecs int
+)
+
+
+
+
+func sessMaxAge() int {
+	sessAgeOnce.Do(func() {
+		hours := 12
+		raw := strings.TrimSpace(os.Getenv("CTF_SESSION_HOURS"))
+		if raw == "" {
+			raw = strings.TrimSpace(dotEnvValue("CTF_SESSION_HOURS"))
+		}
+		if n, err := strconv.Atoi(raw); err == nil && n >= 1 && n <= 720 {
+			hours = n
+		}
+		sessAgeSecs = hours * 3600
+	})
+	return sessAgeSecs
+}
 
 const authSchemaSQL = `
 CREATE TABLE IF NOT EXISTS accounts (
@@ -38,15 +75,68 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
   FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_expiry ON auth_sessions(expires_at);
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS modules TEXT NOT NULL DEFAULT '';
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP;
+CREATE TABLE IF NOT EXISTS login_events (
+  id SERIAL PRIMARY KEY,
+  account_id INTEGER NOT NULL,
+  at TIMESTAMP DEFAULT NOW(),
+  ip TEXT,
+  ua TEXT,
+  FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_login_events_acc_at ON login_events(account_id, at);
 `
 
 type userSession struct {
-	UserID   int    `json:"userId"`
-	Username string `json:"username"`
-	Role     string `json:"role"`
+	UserID   int      `json:"userId"`
+	Username string   `json:"username"`
+	Role     string   `json:"role"`
+	Modules  []string `json:"modules"`
 }
 
 func (u *userSession) isSuper() bool { return u != nil && u.Role == roleSuper }
+
+
+func (u *userSession) allAccess() bool {
+	return u != nil && (u.Role == roleAdmin || u.Role == roleSuper)
+}
+
+
+func (u *userSession) canModule(mod string) bool {
+	if u == nil {
+		return false
+	}
+	if u.allAccess() {
+		return true
+	}
+	for _, m := range u.Modules {
+		if m == mod {
+			return true
+		}
+	}
+	return false
+}
+
+
+func parseModulesCSV(s string) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, p := range strings.Split(s, ",") {
+		p = strings.ToLower(strings.TrimSpace(p))
+		if p == "" || seen[p] {
+			continue
+		}
+		switch p {
+		case modCTF, modMC, modMMD:
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func modulesCSV(mods []string) string { return strings.Join(mods, ",") }
 
 func applyAuthSchema(db *sql.DB) {
 	if db == nil {
@@ -133,12 +223,25 @@ func newSessionToken() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-func (a *App) createSession(w http.ResponseWriter, accountID int) error {
+
+
+
+func reqIsHTTPS(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	if r.TLS != nil {
+		return true
+	}
+	return strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
+}
+
+func (a *App) createSession(w http.ResponseWriter, r *http.Request, accountID int) error {
 	token, err := newSessionToken()
 	if err != nil {
 		return err
 	}
-	exp := time.Now().Add(sessMaxAge * time.Second)
+	exp := time.Now().Add(time.Duration(sessMaxAge()) * time.Second)
 	if _, err := a.dbHandle().Exec(
 		`INSERT INTO auth_sessions (token, account_id, expires_at) VALUES ($1,$2,$3)`,
 		token, accountID, exp,
@@ -150,9 +253,10 @@ func (a *App) createSession(w http.ResponseWriter, accountID int) error {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   reqIsHTTPS(r),
 		SameSite: http.SameSiteLaxMode,
 		Expires:  exp,
-		MaxAge:   sessMaxAge,
+		MaxAge:   sessMaxAge(),
 	})
 	return nil
 }
@@ -166,17 +270,118 @@ func (a *App) sessionFromReq(r *http.Request) *userSession {
 		return nil
 	}
 	var s userSession
+	var mods string
 	err = a.dbHandle().QueryRow(
-		`SELECT acc.id, acc.username, acc.role
+		`SELECT acc.id, acc.username, acc.role, COALESCE(acc.modules,'')
 		   FROM auth_sessions s
 		   JOIN accounts acc ON acc.id = s.account_id
 		  WHERE s.token = $1 AND s.expires_at > NOW()`,
 		ck.Value,
-	).Scan(&s.UserID, &s.Username, &s.Role)
+	).Scan(&s.UserID, &s.Username, &s.Role, &mods)
 	if err != nil {
 		return nil
 	}
+	s.Modules = parseModulesCSV(mods)
+	a.touchSeen(s.UserID)
 	return &s
+}
+
+
+
+func (a *App) touchSeen(id int) {
+	if a == nil || id <= 0 {
+		return
+	}
+	now := time.Now()
+	a.seenMu.Lock()
+	if a.seenAt == nil {
+		a.seenAt = map[int]time.Time{}
+	}
+	if t, ok := a.seenAt[id]; ok && now.Sub(t) < seenThrottle {
+		a.seenMu.Unlock()
+		return
+	}
+	a.seenAt[id] = now
+	a.seenMu.Unlock()
+	go func() {
+		if db := a.dbHandle(); db != nil {
+			db.Exec(`UPDATE accounts SET last_seen = NOW() WHERE id = $1`, id)
+		}
+	}()
+}
+
+var (
+	trustedProxyOnce sync.Once
+	trustedProxyNets []*net.IPNet
+)
+
+
+
+
+func loadTrustedProxies() {
+	trustedProxyOnce.Do(func() {
+		for _, part := range strings.Split(os.Getenv("CTF_TRUSTED_PROXY"), ",") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			if !strings.Contains(part, "/") {
+				ip := net.ParseIP(part)
+				if ip == nil {
+					continue
+				}
+				if v4 := ip.To4(); v4 != nil {
+					part = v4.String() + "/32"
+				} else {
+					part = ip.String() + "/128"
+				}
+			}
+			if _, n, err := net.ParseCIDR(part); err == nil {
+				trustedProxyNets = append(trustedProxyNets, n)
+			}
+		}
+	})
+}
+
+func remoteIP(r *http.Request) net.IP {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = strings.TrimSpace(r.RemoteAddr)
+	}
+	return net.ParseIP(host)
+}
+
+func isTrustedProxy(ip net.IP) bool {
+	if ip == nil {
+		return false
+	}
+	loadTrustedProxies()
+	for _, n := range trustedProxyNets {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+
+
+
+func clientIP(r *http.Request) string {
+	if isTrustedProxy(remoteIP(r)) {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			if i := strings.IndexByte(xff, ','); i > 0 {
+				xff = xff[:i]
+			}
+			if ip := strings.TrimSpace(xff); ip != "" {
+				return ip
+			}
+		}
+	}
+	if ip := remoteIP(r); ip != nil {
+		return ip.String()
+	}
+	return r.RemoteAddr
 }
 
 func (a *App) requireUser(w http.ResponseWriter, r *http.Request) *userSession {
@@ -199,6 +404,19 @@ func (a *App) requireAdmin(w http.ResponseWriter, r *http.Request) *userSession 
 	return s
 }
 
+
+func (a *App) requireModule(w http.ResponseWriter, r *http.Request, mod string) *userSession {
+	s := a.requireUser(w, r)
+	if s == nil {
+		return nil
+	}
+	if !s.canModule(mod) {
+		sendJSON(w, 403, map[string]string{"error": "Anda tidak punya akses ke modul ini."})
+		return nil
+	}
+	return s
+}
+
 func (a *App) requireSuper(w http.ResponseWriter, r *http.Request) *userSession {
 	s := a.requireAdmin(w, r)
 	if s == nil {
@@ -209,6 +427,13 @@ func (a *App) requireSuper(w http.ResponseWriter, r *http.Request) *userSession 
 		return nil
 	}
 	return s
+}
+
+
+var loginPages = map[string]bool{
+	"/":          true,
+	"/user":      true,
+	"/user.html": true,
 }
 
 var adminPages = map[string]bool{
@@ -225,21 +450,30 @@ var adminPages = map[string]bool{
 	"/clean.html":     true,
 }
 
-var publicAPI = map[string]bool{
-	"/api/search":      true,
-	"/api/stats":       true,
-	"/api/photo":       true,
-	"/api/clean/out":   true,
-	"/api/mc/dbstatus": true,
 
-	"/api/user/summary":      true,
-	"/api/user/masterlists":  true,
-	"/api/user/compares":     true,
-	"/api/user/master-items": true,
-	"/api/user/export-ml":    true,
-	"/api/user/mmd-items":    true,
-	"/api/user/mmd-meta":     true,
-	"/api/user/mmd-revisi":   true,
+
+
+
+var publicAPI = map[string]bool{}
+
+
+
+var moduleAPI = map[string]string{
+	"/api/search":            modCTF,
+	"/api/photo":             modCTF,
+	"/api/user/masterlists":  modMMD,
+	"/api/user/compares":     modMC,
+	"/api/user/master-items": modMC,
+	"/api/user/export-ml":    modMC,
+	"/api/user/mmd-items":    modMMD,
+	"/api/user/mmd-meta":     modMMD,
+	"/api/user/mmd-revisi":   modMMD,
+	"/api/user/export-mmd":   modMMD,
+}
+
+
+var loginOnlyAPI = map[string]bool{
+	"/api/user/summary": true,
 }
 
 var authAPI = map[string]bool{
@@ -262,6 +496,21 @@ func (a *App) requirePageLogin(w http.ResponseWriter, r *http.Request) bool {
 	return false
 }
 
+
+
+func (a *App) requirePageAdmin(w http.ResponseWriter, r *http.Request) bool {
+	s := a.sessionFromReq(r)
+	if s == nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return false
+	}
+	if s.Role != roleAdmin && s.Role != roleSuper {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return false
+	}
+	return true
+}
+
 func (a *App) requirePageSuper(w http.ResponseWriter, r *http.Request) bool {
 	s := a.sessionFromReq(r)
 	if s == nil {
@@ -275,11 +524,87 @@ func (a *App) requirePageSuper(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
+
+const (
+	loginMaxFails = 5
+	loginLockDur  = 15 * time.Minute
+	loginFailDur  = 15 * time.Minute
+	loginFailsCap = 5000
+)
+
+type loginFailRec struct {
+	n        int
+	lastFail time.Time
+	lockedTo time.Time
+}
+
+var (
+	loginMu    sync.Mutex
+	loginFails = map[string]*loginFailRec{}
+)
+
+
+func loginKey(ip, username string) string {
+	return ip + "|" + strings.ToLower(strings.TrimSpace(username))
+}
+
+
+func loginLockedUntil(k string) time.Time {
+	loginMu.Lock()
+	defer loginMu.Unlock()
+	rec := loginFails[k]
+	if rec == nil {
+		return time.Time{}
+	}
+	if time.Since(rec.lastFail) > loginFailDur {
+		delete(loginFails, k)
+		return time.Time{}
+	}
+	return rec.lockedTo
+}
+
+func loginRecordFail(k string) {
+	loginMu.Lock()
+	defer loginMu.Unlock()
+	rec := loginFails[k]
+	if rec == nil {
+		if len(loginFails) >= loginFailsCap {
+			for kk, v := range loginFails {
+				if time.Since(v.lastFail) > loginFailDur {
+					delete(loginFails, kk)
+				}
+			}
+			if len(loginFails) >= loginFailsCap {
+				return
+			}
+		}
+		rec = &loginFailRec{}
+		loginFails[k] = rec
+	}
+	rec.n++
+	rec.lastFail = time.Now()
+	if rec.n >= loginMaxFails {
+		rec.lockedTo = time.Now().Add(loginLockDur)
+	}
+}
+
+func loginReset(k string) {
+	loginMu.Lock()
+	delete(loginFails, k)
+	loginMu.Unlock()
+}
+
 func (a *App) authLoginAPI(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.FormValue("username"))
 	password := r.FormValue("password")
 	if username == "" || password == "" {
 		sendErr(w, 400, "Username dan password wajib diisi.")
+		return
+	}
+
+	lk := loginKey(clientIP(r), username)
+	if until := loginLockedUntil(lk); until.After(time.Now()) {
+		sendErr(w, 429, "Terlalu banyak percobaan gagal. Coba lagi pukul "+until.Format("15:04")+".")
 		return
 	}
 	if a.dbHandle() == nil {
@@ -300,19 +625,32 @@ func (a *App) authLoginAPI(w http.ResponseWriter, r *http.Request) {
 			[]byte("$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"),
 			[]byte(password),
 		)
+		loginRecordFail(lk)
 		sendErr(w, 401, "Username atau password salah.")
 		return
 	}
 	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
+		loginRecordFail(lk)
 		sendErr(w, 401, "Username atau password salah.")
 		return
 	}
+	loginReset(lk)
 	purgeExpiredSessions(a.dbHandle())
-	if err := a.createSession(w, id); err != nil {
+	if err := a.createSession(w, r, id); err != nil {
 		sendErr(w, 500, "Gagal membuat sesi: "+err.Error())
 		return
 	}
-	a.dbHandle().Exec(`UPDATE accounts SET last_login = NOW() WHERE id=$1`, id)
+	a.dbHandle().Exec(`UPDATE accounts SET last_login = NOW(), last_seen = NOW() WHERE id=$1`, id)
+	a.dbHandle().Exec(
+		`INSERT INTO login_events (account_id, at, ip, ua) VALUES ($1, NOW(), $2, $3)`,
+		id, clientIP(r), r.UserAgent(),
+	)
+	a.seenMu.Lock()
+	if a.seenAt == nil {
+		a.seenAt = map[int]time.Time{}
+	}
+	a.seenAt[id] = time.Now()
+	a.seenMu.Unlock()
 
 	sendJSON(w, 200, map[string]any{
 		"ok":       true,
@@ -327,7 +665,7 @@ func (a *App) authLogoutAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name: sessCookieName, Value: "", Path: "/",
-		HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1,
+		HttpOnly: true, Secure: reqIsHTTPS(r), SameSite: http.SameSiteLaxMode, MaxAge: -1,
 	})
 	sendJSON(w, 200, map[string]any{"ok": true})
 }
@@ -347,8 +685,8 @@ func (a *App) authChangePasswordAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	oldPw := r.FormValue("oldPassword")
 	newPw := r.FormValue("newPassword")
-	if len(newPw) < 6 {
-		sendErr(w, 400, "Password baru minimal 6 karakter.")
+	if err := validatePassword(newPw); err != nil {
+		sendErr(w, 400, err.Error())
 		return
 	}
 	var hash string
@@ -371,7 +709,7 @@ func (a *App) authChangePasswordAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.dbHandle().Exec(`DELETE FROM auth_sessions WHERE account_id=$1`, s.UserID)
-	if err := a.createSession(w, s.UserID); err != nil {
+	if err := a.createSession(w, r, s.UserID); err != nil {
 		sendErr(w, 500, err.Error())
 		return
 	}

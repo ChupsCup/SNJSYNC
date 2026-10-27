@@ -46,12 +46,6 @@ document.querySelectorAll('.tab').forEach((btn) => {
 
 
 
-$('navSettings').addEventListener('click', () => $('setModal').classList.add('show'));
-$('setX').addEventListener('click', () => $('setModal').classList.remove('show'));
-$('setModal').addEventListener('click', (e) => {
-  if (e.target === $('setModal')) $('setModal').classList.remove('show');
-});
-
 
 
 
@@ -59,15 +53,16 @@ async function loadSummary() {
   try {
     const d = await api('/api/user/summary');
     const f = d.foto || {};
-    const cards = [
-      ['Foto', f.total != null ? f.total.toLocaleString('id-ID') : '-'],
-      
-      
-      ['Master Item', (d.masterItem != null ? d.masterItem.toLocaleString('id-ID') : '-')],
-      ['Masterlist', (d.masterlistAktif != null ? d.masterlistAktif.toLocaleString('id-ID') : '-') + ' aktif'],
-    ];
+    const cards = [];
+    if (f.total != null) cards.push(['Foto', f.total.toLocaleString('id-ID')]);
+    if (d.masterItem != null) cards.push(['Master Item', d.masterItem.toLocaleString('id-ID')]);
+    if (d.masterlistAktif != null) {
+      let extra = '';
+      if (d.masterlistCutoff) extra = `<small>Cut off ${esc(d.masterlistCutoff)}</small>`;
+      cards.push(['Masterlist', d.masterlistAktif.toLocaleString('id-ID') + ' aktif', extra]);
+    }
     $('stats').innerHTML = cards
-      .map(([l, v]) => `<div class="stat"><b>${esc(v)}</b><span>${esc(l)}</span></div>`)
+      .map(([l, v, extra]) => `<div class="stat"><b>${esc(v)}</b><span>${esc(l)}</span>${extra || ''}</div>`)
       .join('');
   } catch (e) {  }
 }
@@ -122,7 +117,7 @@ async function ctfSearch() {
         const card = el('div', 'photo');
         const src = '/api/photo?id=' + encodeURIComponent(p.id) + '&v=20261007';
         const miss = p.total - p.matched;
-        card.innerHTML = `<img src="${esc(src)}" alt="" loading="lazy">
+        card.innerHTML = `<img src="${esc(src)}" alt="" loading="lazy" decoding="async">
           <div class="info"><div class="nm">${esc(p.name || p.id)}</div>
           <div class="sub">${esc(p.dir || '')}</div>${miss > 0 ? `<div class="miss">kurang ${miss} dari ${p.total} kata</div>` : ''}</div>`;
         card.addEventListener('click', () => openLightbox(p, src));
@@ -389,8 +384,14 @@ $('mcStatus').addEventListener('change', () => mcSearch(1));
 $('mcImp').addEventListener('change', () => mcSearch(1));
 $('mcSheet').addEventListener('change', () => mcSearch(1));
 $('mcDl').addEventListener('click', () => {
-  const cmp = $('mcDate').value;
-  location.href = '/api/user/export-ml' + (cmp ? '?compareId=' + encodeURIComponent(cmp) : '');
+  const p = [];
+  const add = (k, v) => { if (v) p.push(k + '=' + encodeURIComponent(v)); };
+  add('compareId', $('mcDate').value);
+  add('q', $('mcQ').value.trim());
+  add('status', $('mcStatus').value);
+  add('importir', $('mcImp').value);
+  add('sheet', $('mcSheet').value);
+  location.href = '/api/user/export-ml' + (p.length ? '?' + p.join('&') : '');
 });
 
 // ============================================================
@@ -464,6 +465,16 @@ $('mmdBtn').addEventListener('click', () => mmdSearch(1));
 $('mmdQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') mmdSearch(1); });
 $('mmdQ').addEventListener('input', debounce(() => mmdSearch(1), 450));
 $('mmdKat').addEventListener('change', () => mmdSearch(1));
+$('mmdDl').addEventListener('click', () => {
+  const q = $('mmdQ').value.trim();
+  const kat = $('mmdKat').value;
+  let url = '/api/user/export-mmd';
+  const p = [];
+  if (q) p.push('q=' + encodeURIComponent(q));
+  if (kat) p.push('kategori=' + encodeURIComponent(kat));
+  if (p.length) url += '?' + p.join('&');
+  location.href = url;
+});
 
 // Klik badge "revisi" -> buka riwayat perubahan deskripsi item itu.
 $('mmdBody').addEventListener('click', (e) => {
@@ -524,10 +535,59 @@ function renderPager(containerId, total, limit, page, onGo) {
 }
 
 // ============================================================
-// Init
+// Init + akses modul per-akun
 // ============================================================
-loadSummary();
-loadMCDates();
-loadMMDMeta();
-mcSearch(1);
-mmdSearch(1);
+const MOD_NAMES = { ctf: 'Cari Foto', mc: 'Master Item', mmd: 'Masterlist' };
+
+function showOnlyModules(allowed) {
+  const set = new Set(allowed);
+  let first = null;
+  document.querySelectorAll('.tab').forEach((b) => {
+    const ok = set.has(b.dataset.module);
+    b.style.display = ok ? '' : 'none';
+    if (ok && !first) first = b;
+  });
+  document.querySelectorAll('.panel').forEach((p) => {
+    p.style.display = set.has(p.id.replace(/^p-/, '')) ? '' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach((b) => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
+  if (first) {
+    first.classList.add('active');
+    const panel = $('p-' + first.dataset.tab);
+    if (panel) panel.classList.add('active');
+  }
+}
+
+async function doLogout() {
+  try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {  }
+  location.href = '/login';
+}
+
+async function boot() {
+  let me = null;
+  try { me = await api('/api/auth/me'); } catch (e) {  }
+  if (!me || !me.loggedIn || !me.session) {
+    location.href = '/login';
+    return;
+  }
+  const s = me.session;
+  const admin = s.role === 'admin' || s.role === 'superadmin';
+  const mods = admin ? ['ctf', 'mc', 'mmd'] : (s.modules || []);
+  showOnlyModules(mods);
+
+  const chip = $('whoChip');
+  if (chip) {
+    chip.textContent = s.username + (admin ? ' \u00b7 ' + (s.role === 'superadmin' ? 'Super Admin' : 'Admin') : '');
+    chip.style.display = '';
+  }
+  const lo = $('btnLogout');
+  if (lo) lo.addEventListener('click', doLogout);
+  if (lo) lo.style.display = '';
+
+  loadSummary();
+  if (mods.indexOf('mc') >= 0) { loadMCDates(); mcSearch(1); }
+  if (mods.indexOf('mmd') >= 0) { loadMMDMeta(); mmdSearch(1); }
+}
+
+boot();

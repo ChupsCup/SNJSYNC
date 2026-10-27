@@ -20,10 +20,13 @@
     
     '#accRoot{position:fixed;z-index:45;display:flex;align-items:center;justify-content:flex-end;' +
     'padding-right:12px;pointer-events:none}' +
-    '#accRoot button.acc-pill{display:flex;align-items:center;justify-content:center;width:40px;height:40px;' +
-    'border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;' +
-    'pointer-events:auto;flex:none}' +
+    '#accRoot button.acc-pill{display:flex;align-items:center;justify-content:center;width:44px;height:44px;' +
+    'border-radius:50%;border:none;background:var(--paper,#252831);color:var(--muted,var(--text2));cursor:pointer;' +
+    'pointer-events:auto;flex:none;' +
+    'box-shadow:6px 6px 12px var(--sh-d,rgba(0,0,0,.65)),-3px -3px 8px var(--sh-l,rgba(255,255,255,.07)),' +
+    'inset -3px -3px 6px var(--in-d,rgba(0,0,0,.55)),inset 3px 3px 6px var(--in-l,rgba(255,255,255,.09))}' +
     '#accRoot button.acc-pill:hover{color:var(--text)}' +
+    '#accRoot button.acc-pill:active{box-shadow:inset 5px 5px 10px var(--in-d,rgba(0,0,0,.55)),inset -5px -5px 10px var(--in-l,rgba(255,255,255,.09))}' +
     '#accRoot button.acc-pill svg{width:18px;height:18px;display:block}' +
     '#accModal{position:fixed;inset:0;z-index:300;display:none;background:rgba(0,0,0,.6);padding:18px;' +
     'align-items:center;justify-content:center}' +
@@ -31,9 +34,10 @@
     '#accModal{backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}' +
     
     
-    '#accCard{background:var(--card);border:1px solid var(--border);border-radius:20px;' +
-    'padding:22px;width:100%;max-width:400px;position:relative;' +
-    'box-shadow:0 24px 60px rgba(0,0,0,.55),0 2px 0 0 rgba(255,255,255,.04) inset;' +
+    '#accCard{background:var(--paper,var(--card));border:none;border-radius:28px;' +
+    'padding:24px;width:100%;max-width:400px;position:relative;' +
+    'box-shadow:18px 18px 44px rgba(0,0,0,.6),-8px -8px 24px var(--sh-l,rgba(255,255,255,.06)),' +
+    'inset -6px -6px 14px var(--in-d,rgba(0,0,0,.5)),inset 6px 6px 14px var(--in-l,rgba(255,255,255,.07));' +
     'animation:accRise .22s cubic-bezier(.22,.61,.36,1) both}' +
     '@keyframes accRise{from{opacity:0;transform:translateY(8px) scale(.98)}' +
     'to{opacity:1;transform:none}}' +

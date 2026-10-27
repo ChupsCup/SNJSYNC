@@ -94,7 +94,7 @@ func (a *App) saveConfig() {
 	if err != nil {
 		return
 	}
-	_ = os.WriteFile(filepath.Join(a.root, "config.json"), b, 0o644)
+	_ = os.WriteFile(filepath.Join(a.root, "config.json"), b, 0o600)
 }
 
 func stripBOM(b []byte) []byte {
@@ -148,6 +148,7 @@ type cleanOutItem struct {
 type oauthState struct {
 	verifier string
 	state    string
+	redirect string
 }
 
 type App struct {
@@ -180,6 +181,9 @@ type App struct {
 	dbMu    sync.Mutex
 	db      *sql.DB
 	dbRetry time.Time
+
+	seenMu sync.Mutex
+	seenAt map[int]time.Time
 }
 
 func (a *App) requireDB(w http.ResponseWriter) *sql.DB {
@@ -330,6 +334,7 @@ func (a *App) buildPhotoUniverse() {
 		u = append(u, v)
 	}
 	a.universe = u
+	invalidatePhotoIDs()
 }
 
 type jstime time.Time

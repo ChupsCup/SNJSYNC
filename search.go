@@ -38,16 +38,19 @@ var cutCodeSynonyms = map[string][]string{
 	"cm01":  {"slice", "daging kita", "dagingkita", "compensated"},
 	"cm001": {"slice", "daging kita", "dagingkita", "compensated"},
 	"hq41":  {"topside", "penutup"},
-	"hq42":  {"silverside", "gandik"},
-	"hq44":  {"rump", "tanjakan"},
-	"hq45":  {"knuckle", "kelapa"},
-	"hq46":  {"tenderloin", "striploin", "sirloin", "has dalam", "has luar"},
+	"hq42":  {"thick flank", "thickflank", "flank"},
+	"hq44":  {"silverside", "gandik"},
+	"hq45":  {"rump", "rump steak", "rumpsteak", "tanjakan"},
+	"hq46":  {"striploin", "sirloin", "has luar"},
 	"hq31":  {"tenderloin", "has dalam"},
 	"fq18":  {"trimming", "bulk", "kasaran"},
+	"fq19":  {"square flank", "flank"},
 	"fq64":  {"chuck tender", "chucktender", "paha depan"},
-	"fq65":  {"blade", "flank"},
+	"fq65":  {"blade", "shoulder blade"},
+	"fq66":  {"trimming", "trim"},
 	"fq67":  {"cube roll", "cuberoll", "ribeye", "rib eye"},
 	"fq106": {"shin shank", "shinshank", "sengkel"},
+	"fq152": {"trimming", "trim"},
 }
 
 var reCodePattern = regexp.MustCompile(`(?i)\b([a-z]{1,4})[- ]?(\d{1,4}[a-z]?)\b`)
@@ -536,6 +539,51 @@ func stripLeadingZeros(s string) string {
 	return s[i:]
 }
 
+func cutCanonField(s string, cache map[string][]string) []string {
+	if v, ok := cache[s]; ok {
+		return v
+	}
+	wds := splitWords(s)
+	out := []string{}
+	seen := map[string]bool{}
+	for i := 0; i < len(wds); i++ {
+		w := wds[i]
+		if len(w) < 3 || !cutPrefix3[strings.ToUpper(w[:3])] {
+			continue
+		}
+		for n := 1; n <= 3 && i+n <= len(wds); n++ {
+			k := cutCanon(wds[i : i+n])
+			if k == "" {
+				continue
+			}
+			low := strings.ToLower(k)
+			if !seen[low] {
+				seen[low] = true
+				out = append(out, low)
+			}
+		}
+	}
+	cache[s] = out
+	return out
+}
+
+func dirLabel(raw string) string {
+	d := strings.ReplaceAll(raw, "\\", "/")
+	parts := make([]string, 0, 2)
+	for _, p := range strings.Split(d, "/") {
+		if p != "" {
+			parts = append(parts, p)
+		}
+	}
+	if len(parts) == 0 {
+		return raw
+	}
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return parts[len(parts)-2] + " " + parts[len(parts)-1]
+}
+
 func buildSearchEntries(idx []PhotoEntry) *SearchIndex {
 	si := &SearchIndex{
 		entries:  make([]*searchEntry, 0, len(idx)),
@@ -544,6 +592,7 @@ func buildSearchEntries(idx []PhotoEntry) *SearchIndex {
 		fz:       map[string]*strSet{},
 		estIndex: map[string][]int{},
 	}
+	canonCache := map[string][]string{}
 	for _, e := range idx {
 		bcTexts := make([]string, 0, len(e.Barcodes))
 		for _, b := range e.Barcodes {
@@ -600,6 +649,18 @@ func buildSearchEntries(idx []PhotoEntry) *SearchIndex {
 			}
 		}
 		en.hay = strings.Join(hayParts, " ")
+
+		for fi := 0; fi < 2; fi++ {
+			src := fields[fi]
+			if fi == 0 {
+				src = dirLabel(e.Dir)
+			}
+			for _, low := range cutCanonField(src, canonCache) {
+				if ws[fi] > en.wSrc[low] {
+					en.wSrc[low] = ws[fi]
+				}
+			}
+		}
 
 		en.words = make([]string, 0, len(en.wSrc))
 		for wd := range en.wSrc {
@@ -699,19 +760,55 @@ func parseQuery(q string, countries map[string][]string) ([]queryToken, []codeHi
 		if i+1 < len(rawTerms) {
 			next := trimNonAlnum(rawTerms[i+1])
 			if next != "" {
-				combined := clean + next
-				if m := reCodePattern.FindStringSubmatch(combined); len(m) >= 3 && m[0] == combined {
-					processedTerms = append(processedTerms, combined)
-					i++
-					continue
-				}
-				if m := reSpecPattern.FindStringSubmatch(combined); len(m) >= 3 && m[0] == combined {
-					processedTerms = append(processedTerms, combined)
-					i++
-					continue
+
+				if _, isCountry := countries[next]; !isCountry {
+					if _, isCountryClean := countries[clean]; !isCountryClean {
+						combined := clean + next
+						if m := reCodePattern.FindStringSubmatch(combined); len(m) >= 3 && m[0] == combined {
+							processedTerms = append(processedTerms, combined)
+							i++
+							continue
+						}
+						if m := reSpecPattern.FindStringSubmatch(combined); len(m) >= 3 && m[0] == combined {
+							processedTerms = append(processedTerms, combined)
+							i++
+							continue
+						}
+					}
 				}
 			}
 		}
+
+		joined := ""
+		skip := 0
+		for n := 3; n >= 2; n-- {
+			if i+n > len(rawTerms) {
+				continue
+			}
+			parts := make([]string, 0, n)
+			for k := 0; k < n; k++ {
+				p := trimNonAlnum(rawTerms[i+k])
+				if p == "" {
+					parts = nil
+					break
+				}
+				parts = append(parts, p)
+			}
+			if parts == nil {
+				continue
+			}
+			if kk := cutCanon(parts); kk != "" {
+				joined = strings.ToLower(kk)
+				skip = n - 1
+				break
+			}
+		}
+		if joined != "" {
+			processedTerms = append(processedTerms, joined)
+			i += skip
+			continue
+		}
+
 		processedTerms = append(processedTerms, clean)
 	}
 
@@ -725,15 +822,20 @@ func parseQuery(q string, countries map[string][]string) ([]queryToken, []codeHi
 				for _, v := range al {
 					lo = append(lo, strings.ToLower(v))
 				}
-				tokens = append(tokens, queryToken{text: sub, num: false, soft: false, aliases: lo, country: true})
+
+				tokens = append(tokens, queryToken{text: sub, num: false, soft: true, aliases: lo, country: true})
 				label := ""
 				if len(lo) > 0 {
 					label = lo[0]
 				}
 				codes = append(codes, codeHit{Code: sub, Label: label})
 			} else {
-				isNum := reNumOnly.MatchString(sub)
-				tokens = append(tokens, queryToken{text: sub, num: isNum, soft: !isNum && softLabels.Has(sub)})
+				txt := sub
+				if k := cutCanon([]string{sub}); k != "" {
+					txt = strings.ToLower(k)
+				}
+				isNum := reNumOnly.MatchString(txt)
+				tokens = append(tokens, queryToken{text: txt, num: isNum, soft: !isNum && softLabels.Has(txt)})
 			}
 		}
 	}
@@ -877,13 +979,17 @@ func (en *searchEntry) cutInfer(t string) float64 {
 		}
 	}
 	if hasCode && unitsOK {
-		return codeBest * 0.95
+		s := codeBest * 0.15
+		if s > 0.5 {
+			s = 0.5
+		}
+		return s
 	}
 
 	for _, u := range en.cutUnits {
 		if famIntersect(cutUnitCodes[u], fam) {
 			if len(en.codeW) == 0 || hasCode {
-				return srcWeight["text"]
+				return 0.5
 			}
 		}
 	}
@@ -1095,6 +1201,10 @@ func (a *App) search(q string) searchResp {
 		}
 		if _, ok := cutWordUnits[t.text]; ok {
 			anchor[i] = true
+			continue
+		}
+		if cutKnown(cutKey(t.text)) {
+			anchor[i] = true
 		}
 	}
 
@@ -1140,6 +1250,10 @@ func (a *App) search(q string) searchResp {
 		sort.SliceStable(exact, func(i, j int) bool {
 			if exact[i].score != exact[j].score {
 				return exact[i].score > exact[j].score
+			}
+			di, dj := entries[exact[i].idx].e.Dir, entries[exact[j].idx].e.Dir
+			if di != dj {
+				return di < dj
 			}
 			return cmpName(entries[exact[i].idx].e.Name, entries[exact[j].idx].e.Name)
 		})
